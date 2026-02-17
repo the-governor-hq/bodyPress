@@ -57,7 +57,7 @@ export function CtaSection() {
         )}
 
         <p className="mt-3 sm:mt-4 text-xs text-muted-foreground">
-          Free forever. Delivered before you wake up.
+          Unsubscribe anytime.
         </p>
       </div>
     </section>

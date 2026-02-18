@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Fragment } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ArrowRight, ArrowLeft, Check } from "lucide-react"
 import { WelcomeStep } from "@/components/onboarding/welcome-step"
@@ -49,51 +49,48 @@ export default function OnboardingPage() {
         {/* Progress Bar */}
         {!isLastStep && (
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center mb-3">
               {STEPS.slice(0, -1).map((step, index) => (
-                <div
-                  key={step.id}
-                  className="flex items-center"
-                >
+                <Fragment key={step.id}>
                   <div
-                    className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${
-                      index < currentStep
-                        ? "bg-primary border-primary text-primary-foreground"
-                        : index === currentStep
-                        ? "border-primary text-primary"
-                        : "border-muted-foreground/30 text-muted-foreground"
-                    }`}
+                    className="flex flex-col items-center"
+                    style={{ minWidth: "fit-content" }}
                   >
-                    {index < currentStep ? (
-                      <Check className="w-4 h-4" />
-                    ) : (
-                      <span className="text-sm font-medium">{index + 1}</span>
-                    )}
+                    <div
+                      className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${
+                        index < currentStep
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : index === currentStep
+                          ? "border-primary text-primary"
+                          : "border-muted-foreground/30 text-muted-foreground"
+                      }`}
+                    >
+                      {index < currentStep ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <span className="text-sm font-medium">{index + 1}</span>
+                      )}
+                    </div>
+                    <span
+                      className={`mt-2 text-xs whitespace-nowrap ${
+                        index === currentStep 
+                          ? "text-foreground font-medium" 
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {step.title}
+                    </span>
                   </div>
                   {index < STEPS.length - 2 && (
                     <div
-                      className={`w-full h-0.5 mx-2 transition-all ${
+                      className={`flex-1 h-0.5 mx-3 transition-all ${
                         index < currentStep
                           ? "bg-primary"
                           : "bg-muted-foreground/30"
                       }`}
-                      style={{ width: "100px" }}
                     />
                   )}
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-              {STEPS.slice(0, -1).map((step, index) => (
-                <span
-                  key={step.id}
-                  className={`${
-                    index === currentStep ? "text-foreground font-medium" : ""
-                  }`}
-                  style={{ width: "120px", textAlign: index === 0 ? "left" : index === STEPS.length - 2 ? "right" : "center" }}
-                >
-                  {step.title}
-                </span>
+                </Fragment>
               ))}
             </div>
           </div>

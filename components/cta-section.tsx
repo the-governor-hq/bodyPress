@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowRight } from "lucide-react"
 import { subscribe, requestMagicLink, ApiError } from "@/lib/api"
-import { setPendingEmail } from "@/lib/auth"
+import { isKnownEmail, setPendingEmail } from "@/lib/auth"
 import { useSessionStore } from "@/lib/session-store"
 
 export function CtaSection() {
@@ -22,20 +22,28 @@ export function CtaSection() {
     setLoading(true)
     setError(null)
     try {
-      const response = await subscribe({ email: normalizedEmail })
       setPendingEmail(normalizedEmail)
       setSessionPendingEmail(normalizedEmail)
       sessionStorage.removeItem("onboarding_subscribe_sent")
       sessionStorage.removeItem("onboarding_subscribe_state")
-      setSubmitted(true)
 
-      if (!response.isNew) {
+      if (isKnownEmail(normalizedEmail)) {
         await requestMagicLink({ email: normalizedEmail })
+        setSubmitted(true)
         setTimeout(() => router.push(`/auth/verify-email?email=${encodeURIComponent(normalizedEmail)}&mode=signin`), 1200)
         return
       }
 
-      setTimeout(() => router.push("/onboarding"), 1200)
+      const response = await subscribe({ email: normalizedEmail })
+      setSubmitted(true)
+
+      setTimeout(() => {
+        router.push(
+          response.isNew
+            ? "/onboarding"
+            : `/auth/verify-email?email=${encodeURIComponent(normalizedEmail)}&mode=verify`,
+        )
+      }, 1200)
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Something went wrong. Try again."
       setError(msg)

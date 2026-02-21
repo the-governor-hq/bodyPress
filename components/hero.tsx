@@ -6,6 +6,7 @@ import { ArrowRight, Activity, Loader2, LogOut, Unplug } from "lucide-react"
 import {
   clearPendingEmail,
   getPendingEmail,
+  isKnownEmail,
   setPendingEmail,
 } from "@/lib/auth"
 import { useSessionStore } from "@/lib/session-store"
@@ -122,9 +123,7 @@ export function Hero() {
       sessionStorage.removeItem("onboarding_subscribe_sent")
       sessionStorage.removeItem("onboarding_subscribe_state")
 
-      const response = await subscribe({ email: normalizedEmail })
-
-      if (!response.isNew) {
+      if (isKnownEmail(normalizedEmail)) {
         await requestMagicLink({ email: normalizedEmail })
         setSubmitted(true)
         setTimeout(() => {
@@ -133,9 +132,15 @@ export function Hero() {
         return
       }
 
+      const response = await subscribe({ email: normalizedEmail })
+
       setSubmitted(true)
       setTimeout(() => {
-        router.push("/onboarding")
+        router.push(
+          response.isNew
+            ? "/onboarding"
+            : `/auth/verify-email?email=${encodeURIComponent(normalizedEmail)}&mode=verify`,
+        )
       }, 300)
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Something went wrong. Please try again."

@@ -2,6 +2,7 @@ const JWT_KEY = "bp_token"
 const EMAIL_KEY = "bp_email"
 const LEGACY_EMAIL_KEY = "userEmail"
 const ONBOARDING_KEY = "bp_onboarding"
+const KNOWN_EMAILS_KEY = "bp_known_emails"
 const AUTH_EVENT = "bp-auth-changed"
 
 export type OnboardingData = {
@@ -78,4 +79,37 @@ export function setOnboardingData(data: Partial<OnboardingData>): void {
 
 export function clearOnboardingData(): void {
   localStorage.removeItem(ONBOARDING_KEY)
+}
+
+// ── Known emails (signin hint) ──────────────────────────────────────────────
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+export function getKnownEmails(): string[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = localStorage.getItem(KNOWN_EMAILS_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : []
+  } catch {
+    return []
+  }
+}
+
+export function isKnownEmail(email: string): boolean {
+  const target = normalizeEmail(email)
+  return getKnownEmails().includes(target)
+}
+
+export function markKnownEmail(email: string): void {
+  if (typeof window === "undefined") return
+  const target = normalizeEmail(email)
+  if (!target) return
+
+  const emails = getKnownEmails()
+  if (!emails.includes(target)) {
+    localStorage.setItem(KNOWN_EMAILS_KEY, JSON.stringify([...emails, target]))
+  }
 }

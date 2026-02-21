@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { verifyMagicLink, updateProfile, ApiError } from "@/lib/api"
-import { setToken, getOnboardingData, clearOnboardingData } from "@/lib/auth"
+import { setToken, getOnboardingData, clearOnboardingData, markKnownEmail } from "@/lib/auth"
 
 type State = "verifying" | "success" | "error"
 
@@ -51,6 +51,7 @@ export default function VerifyPage() {
       .then(async (res) => {
         completedRef.current = true
         setToken(res.token)
+        markKnownEmail(res.user.email)
 
         // Flush any saved onboarding preferences
         const saved = getOnboardingData()

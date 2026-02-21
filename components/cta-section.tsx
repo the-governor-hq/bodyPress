@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowRight } from "lucide-react"
-import { subscribe, ApiError } from "@/lib/api"
+import { subscribe, requestMagicLink, ApiError } from "@/lib/api"
 import { setPendingEmail } from "@/lib/auth"
 import { useSessionStore } from "@/lib/session-store"
 
@@ -18,15 +18,23 @@ export function CtaSection() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || loading) return
+    const normalizedEmail = email.trim().toLowerCase()
     setLoading(true)
     setError(null)
     try {
-      await subscribe(email)
-      setPendingEmail(email)
-      setSessionPendingEmail(email)
+      const response = await subscribe({ email: normalizedEmail })
+      setPendingEmail(normalizedEmail)
+      setSessionPendingEmail(normalizedEmail)
       sessionStorage.removeItem("onboarding_subscribe_sent")
       sessionStorage.removeItem("onboarding_subscribe_state")
       setSubmitted(true)
+
+      if (!response.isNew) {
+        await requestMagicLink({ email: normalizedEmail })
+        setTimeout(() => router.push(`/auth/verify-email?email=${encodeURIComponent(normalizedEmail)}&mode=signin`), 1200)
+        return
+      }
+
       setTimeout(() => router.push("/onboarding"), 1200)
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Something went wrong. Try again."

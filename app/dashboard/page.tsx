@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Activity, Heart, TrendingUp, Plus, Unplug, RefreshCw, Loader2 } from "lucide-react"
-import { isAuthenticated } from "@/lib/auth"
+import { Activity, Heart, TrendingUp, Plus, Unplug, RefreshCw, Loader2, LogOut } from "lucide-react"
+import { clearPendingEmail, clearToken, isAuthenticated } from "@/lib/auth"
 import { 
   getConnections, 
   getOAuthConnectUrl, 
@@ -14,6 +14,7 @@ import {
 } from "@/lib/api"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
+import { useSessionStore } from "@/lib/session-store"
 
 const DEVICES = [
   {
@@ -30,10 +31,12 @@ const DEVICES = [
 
 export default function DashboardPage() {
   const router = useRouter()
+  const clearSessionPendingEmail = useSessionStore((state) => state.clearPendingEmail)
   const [connections, setConnections] = useState<Connection[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
+  const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -98,6 +101,21 @@ export default function DashboardPage() {
     return connections.find(conn => conn.provider.toLowerCase() === provider.toLowerCase())
   }
 
+  const handleSignOut = async () => {
+    if (!confirm("Sign out from this browser session?")) {
+      return
+    }
+
+    try {
+      setSigningOut(true)
+    } finally {
+      clearToken()
+      clearPendingEmail()
+      clearSessionPendingEmail()
+      router.replace("/")
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -115,9 +133,19 @@ export default function DashboardPage() {
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
             Dashboard
           </h1>
-          <p className="text-muted-foreground">
-            Manage your connected devices and view your health data
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-muted-foreground">
+              Manage your connected devices and view your health data
+            </p>
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:border-destructive hover:bg-destructive/10 disabled:opacity-60"
+            >
+              {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+              Sign out
+            </button>
+          </div>
         </div>
 
         {/* Connected Devices */}

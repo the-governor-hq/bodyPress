@@ -2,17 +2,30 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Activity, Menu, X, LayoutDashboard } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Activity, Menu, X, LayoutDashboard, LogOut } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { isAuthenticated } from "@/lib/auth"
+import { clearPendingEmail, clearToken, isAuthenticated } from "@/lib/auth"
+import { useSessionStore } from "@/lib/session-store"
 
 export function SiteHeader() {
+  const router = useRouter()
+  const clearSessionPendingEmail = useSessionStore((state) => state.clearPendingEmail)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAuthed, setIsAuthed] = useState(false)
 
   useEffect(() => {
     setIsAuthed(isAuthenticated())
   }, [])
+
+  const handleSignOut = () => {
+    clearToken()
+    clearPendingEmail()
+    clearSessionPendingEmail()
+    setIsAuthed(false)
+    setMobileMenuOpen(false)
+    router.replace("/")
+  }
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
@@ -35,6 +48,13 @@ export function SiteHeader() {
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
               </Link>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
               <ThemeToggle />
             </>
           ) : (
@@ -88,6 +108,13 @@ export function SiteHeader() {
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-2 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
                   <div className="pt-1">
                     <ThemeToggle />
                   </div>

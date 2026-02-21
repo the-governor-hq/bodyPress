@@ -45,6 +45,8 @@ export default function OnboardingPage() {
       setFormData((prev) => ({ ...prev, device: connected }))
       setOnboardingData({ device: connected })
       setCurrentStep(3) // jump to Success
+      // Clear onboarding flow flag
+      sessionStorage.removeItem("onboarding_flow")
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

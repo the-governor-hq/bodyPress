@@ -25,9 +25,9 @@ export function SuccessStep({ formData }: SuccessStepProps) {
       origin: { y: 0.6 },
     })
 
-    // Redirect to home after 3 seconds
+    // Redirect to dashboard after 3 seconds
     const timeout = setTimeout(() => {
-      router.push("/")
+      router.push("/dashboard")
     }, 3000)
 
     return () => clearTimeout(timeout)

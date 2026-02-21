@@ -79,6 +79,9 @@ export function ConnectDeviceStep({ formData, updateFormData }: ConnectDeviceSte
     setSelectedDevice(deviceId)
     updateFormData({ device: deviceId })
 
+    // Set onboarding flow flag for OAuth callback
+    sessionStorage.setItem("onboarding_flow", "true")
+
     // Redirect to backend OAuth — backend will redirect back to frontend after auth
     window.location.href = getOAuthConnectUrl(deviceId as "garmin" | "fitbit")
   }

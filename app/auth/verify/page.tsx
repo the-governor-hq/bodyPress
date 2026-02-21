@@ -43,7 +43,7 @@ export default function VerifyPage() {
         setState("success")
 
         // If onboarding is not done, go back to onboarding connect step
-        const destination = res.user.onboardingDone ? "/" : "/onboarding"
+        const destination = res.user.onboardingDone ? "/dashboard" : "/onboarding"
         setTimeout(() => {
           clearOnboardingData()
           router.replace(destination)

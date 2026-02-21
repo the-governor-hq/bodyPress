@@ -178,3 +178,176 @@ export function getOAuthConnectUrl(provider: "garmin" | "fitbit"): string {
   if (token) params.set("auth_token", token)
   return `${BASE_URL}/oauth/${provider}/connect?${params.toString()}`
 }
+
+export interface DisconnectResponse {
+  message: string
+}
+
+export function disconnectDevice(provider: "garmin" | "fitbit"): Promise<DisconnectResponse> {
+  return request<DisconnectResponse>(`/oauth/${provider}/disconnect`, { method: "POST" }, true)
+}
+
+// ── Wearables ─────────────────────────────────────────────────────────────────
+
+export interface Connection {
+  provider: string
+  status: "connected" | "disconnected" | "error"
+  connectedAt?: string
+  lastSync?: string
+  health?: {
+    status: string
+    details?: string
+  }
+}
+
+export interface ConnectionsResponse {
+  connections: Connection[]
+}
+
+export function getConnections(): Promise<ConnectionsResponse> {
+  return request<ConnectionsResponse>("/v1/wearables/connections", {}, true)
+}
+
+export interface SyncResponse {
+  message: string
+  provider: string
+}
+
+export function triggerSync(provider: "garmin" | "fitbit"): Promise<SyncResponse> {
+  return request<SyncResponse>(`/v1/wearables/${provider}/sync`, { method: "POST" }, true)
+}
+
+export function triggerBackfill(provider: "garmin" | "fitbit"): Promise<SyncResponse> {
+  return request<SyncResponse>(`/v1/wearables/${provider}/backfill`, { method: "POST" }, true)
+}
+
+export interface Activity {
+  id: string
+  provider: string
+  startTime: string
+  duration: number
+  type: string
+  calories?: number
+  distance?: number
+  avgHeartRate?: number
+  maxHeartRate?: number
+}
+
+export interface ActivitiesResponse {
+  activities: Activity[]
+  total: number
+}
+
+export function getActivities(params?: {
+  provider?: string
+  from?: string
+  to?: string
+  limit?: number
+}): Promise<ActivitiesResponse> {
+  const searchParams = new URLSearchParams()
+  if (params?.provider) searchParams.set("provider", params.provider)
+  if (params?.from) searchParams.set("from", params.from)
+  if (params?.to) searchParams.set("to", params.to)
+  if (params?.limit) searchParams.set("limit", params.limit.toString())
+
+  const url = `/v1/wearables/activities${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+  return request<ActivitiesResponse>(url, {}, true)
+}
+
+export interface Sleep {
+  id: string
+  provider: string
+  date: string
+  duration: number
+  quality?: number
+  deepSleep?: number
+  lightSleep?: number
+  remSleep?: number
+  awake?: number
+}
+
+export interface SleepResponse {
+  sleep: Sleep[]
+  total: number
+}
+
+export function getSleep(params?: {
+  provider?: string
+  from?: string
+  to?: string
+  limit?: number
+}): Promise<SleepResponse> {
+  const searchParams = new URLSearchParams()
+  if (params?.provider) searchParams.set("provider", params.provider)
+  if (params?.from) searchParams.set("from", params.from)
+  if (params?.to) searchParams.set("to", params.to)
+  if (params?.limit) searchParams.set("limit", params.limit.toString())
+
+  const url = `/v1/wearables/sleep${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+  return request<SleepResponse>(url, {}, true)
+}
+
+export interface Daily {
+  id: string
+  provider: string
+  date: string
+  steps?: number
+  calories?: number
+  distance?: number
+  activeMinutes?: number
+  restingHeartRate?: number
+}
+
+export interface DailiesResponse {
+  dailies: Daily[]
+  total: number
+}
+
+export function getDailies(params?: {
+  provider?: string
+  from?: string
+  to?: string
+  limit?: number
+}): Promise<DailiesResponse> {
+  const searchParams = new URLSearchParams()
+  if (params?.provider) searchParams.set("provider", params.provider)
+  if (params?.from) searchParams.set("from", params.from)
+  if (params?.to) searchParams.set("to", params.to)
+  if (params?.limit) searchParams.set("limit", params.limit.toString())
+
+  const url = `/v1/wearables/dailies${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+  return request<DailiesResponse>(url, {}, true)
+}
+
+export interface Summary {
+  period: string
+  providers: string[]
+  activities: {
+    count: number
+    totalDuration: number
+    totalCalories: number
+    totalDistance: number
+  }
+  sleep: {
+    count: number
+    avgDuration: number
+    avgQuality?: number
+  }
+  dailies: {
+    avgSteps: number
+    avgCalories: number
+    avgActiveMinutes: number
+  }
+}
+
+export function getSummary(params?: {
+  provider?: string
+  days?: number
+}): Promise<Summary> {
+  const searchParams = new URLSearchParams()
+  if (params?.provider) searchParams.set("provider", params.provider)
+  if (params?.days) searchParams.set("days", params.days.toString())
+
+  const url = `/v1/wearables/summary${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+  return request<Summary>(url, {}, true)
+}

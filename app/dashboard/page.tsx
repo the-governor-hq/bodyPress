@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Activity, Heart, TrendingUp, Plus, Unplug, RefreshCw, Loader2, LogOut } from "lucide-react"
-import { isAuthenticated } from "@/lib/auth"
 import { 
   getConnections, 
   getOAuthConnectUrl, 
@@ -31,6 +30,9 @@ const DEVICES = [
 
 export default function DashboardPage() {
   const router = useRouter()
+  const isAuthed = useAuthStore((state) => state.isAuthed)
+  const initializedAuth = useAuthStore((state) => state.initialized)
+  const initializeAuth = useAuthStore((state) => state.initializeAuth)
   const signOut = useAuthStore((state) => state.signOut)
   const [connections, setConnections] = useState<Connection[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,13 +41,19 @@ export default function DashboardPage() {
   const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    initializeAuth()
+  }, [initializeAuth])
+
+  useEffect(() => {
+    if (!initializedAuth) return
+
+    if (!isAuthed) {
       router.push("/")
       return
     }
 
     loadConnections()
-  }, [router])
+  }, [router, isAuthed, initializedAuth])
 
   const loadConnections = async () => {
     try {
@@ -168,7 +176,7 @@ export default function DashboardPage() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${device.color}`}
+                        className={`flex items-center justify-center w-12 h-12 rounded-xl bg-linear-to-br ${device.color}`}
                       >
                         <Activity className="w-6 h-6 text-white" />
                       </div>

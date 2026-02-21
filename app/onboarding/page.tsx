@@ -3,19 +3,17 @@
 import { useState, useEffect, Fragment } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowRight, ArrowLeft, Check } from "lucide-react"
+import { ArrowRight, ArrowLeft, Check, Loader2 } from "lucide-react"
 import { WelcomeStep } from "@/components/onboarding/welcome-step"
 import { PreferencesStep } from "@/components/onboarding/preferences-step"
 import { ConnectDeviceStep } from "@/components/onboarding/connect-device-step"
 import { SuccessStep } from "@/components/onboarding/success-step"
 import {
-  getPendingEmail,
   getOnboardingData,
   setOnboardingData,
-  isAuthenticated,
 } from "@/lib/auth"
 import { updateProfile, ApiError } from "@/lib/api"
-import { useSessionStore } from "@/lib/session-store"
+import { useAuthSession } from "@/hooks/use-auth-session"
 
 const STEPS = [
   { id: "welcome", title: "Welcome", component: WelcomeStep },
@@ -27,8 +25,7 @@ const STEPS = [
 export default function OnboardingPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionPendingEmail = useSessionStore((state) => state.pendingEmail)
-  const hasHydrated = useSessionStore((state) => state.hasHydrated)
+  const { isAuthed, loading, hasConnectedDevice } = useAuthSession()
   const [currentStep, setCurrentStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -38,35 +35,38 @@ export default function OnboardingPage() {
     device: "",
   })
 
-  // Hydrate from localStorage; handle OAuth return redirect
+  // Redirect to dashboard if already connected
   useEffect(() => {
-    if (!hasHydrated) return
-
-    const authenticated = isAuthenticated()
-    const pendingEmail = sessionPendingEmail ?? getPendingEmail()
-    if (!authenticated && !pendingEmail) {
-      console.warn("[Onboarding] Unauthenticated access without pending email. Redirecting to home.")
-      router.replace("/")
-      return
+    if (!loading && isAuthed && hasConnectedDevice) {
+      console.log("[Onboarding] User has connected device; redirecting to dashboard.")
+      router.replace("/dashboard")
     }
+  }, [loading, isAuthed, hasConnectedDevice, router])
 
-    if (authenticated && !pendingEmail) {
-      console.log("[Onboarding] Authenticated session without pending email; continuing onboarding.")
-    }
-
+  // Hydrate saved onboarding data
+  useEffect(() => {
     const saved = getOnboardingData()
     if (saved.name || saved.goals || saved.timezone) {
       setFormData((prev) => ({ ...prev, ...saved }))
     }
+
+    // Handle OAuth callback
     const connected = searchParams.get("connected")
     if (connected) {
       setFormData((prev) => ({ ...prev, device: connected }))
       setOnboardingData({ device: connected })
-      setCurrentStep(3) // jump to Success
-      // Clear onboarding flow flag
+      setCurrentStep(3)
       sessionStorage.removeItem("onboarding_flow")
     }
-  }, [router, searchParams, hasHydrated, sessionPendingEmail])
+  }, [searchParams])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const handleNext = async () => {
     const isPreferencesStep = currentStep === 1 // 0=welcome, 1=preferences, 2=connect, 3=success
@@ -82,7 +82,7 @@ export default function OnboardingPage() {
       console.log("[Onboarding] Preferences complete; verification email is handled on Connect Device step")
     }
 
-    if (isConnectStep && isAuthenticated()) {
+    if (isConnectStep && isAuthed) {
       // Save profile before moving to success
       setSubmitting(true)
       console.log("[Onboarding] Connect step - Saving profile...")
@@ -123,7 +123,7 @@ export default function OnboardingPage() {
   const isLastStep = currentStep === STEPS.length - 1
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-b from-background to-secondary/20 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         {/* Progress Bar */}
         {!isLastStep && (

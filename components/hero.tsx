@@ -12,14 +12,12 @@ import {
 import { useSessionStore } from "@/lib/session-store"
 import {
   ApiError,
-  Connection,
   disconnectDevice,
   getConnections,
-  getMe,
   requestMagicLink,
   subscribe,
 } from "@/lib/api"
-import { useAuthStore } from "@/lib/auth-store"
+import { useAuthSession } from "@/hooks/use-auth-session"
 
 export function Hero() {
   const router = useRouter()
@@ -27,64 +25,37 @@ export function Hero() {
   const sessionPendingEmail = useSessionStore((state) => state.pendingEmail)
   const setSessionPendingEmail = useSessionStore((state) => state.setPendingEmail)
   const clearSessionPendingEmail = useSessionStore((state) => state.clearPendingEmail)
-  const isAuthed = useAuthStore((state) => state.isAuthed)
-  const initializedAuth = useAuthStore((state) => state.initialized)
-  const initializeAuth = useAuthStore((state) => state.initializeAuth)
-  const signOut = useAuthStore((state) => state.signOut)
+  const {
+    isAuthed,
+    loading: loadingStatus,
+    connections,
+    userEmail,
+    signOut: authSignOut,
+  } = useAuthSession()
   const [email, setEmail] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [loadingStatus, setLoadingStatus] = useState(true)
-  const [connections, setConnections] = useState<Connection[]>([])
   const [disconnecting, setDisconnecting] = useState<"garmin" | "fitbit" | null>(null)
 
-  useEffect(() => {
-    initializeAuth()
-  }, [initializeAuth])
-
+  // Sync email from session or auth state
   useEffect(() => {
     if (!hasHydrated) return
 
-    const hydrateSession = async () => {
-      const persistedEmail = sessionPendingEmail ?? getPendingEmail()
-      if (persistedEmail) {
-        setEmail(persistedEmail)
-      }
-
-      if (!isAuthed) {
-        setConnections([])
-        setLoadingStatus(false)
-        return
-      }
-
-      try {
-        const [me, connectionResponse] = await Promise.all([getMe(), getConnections()])
-        setConnections(connectionResponse.connections)
-
-        if (me.email) {
-          setEmail(me.email)
-          setPendingEmail(me.email)
-          setSessionPendingEmail(me.email)
-        }
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
-          signOut()
-        }
-        setConnections([])
-      } finally {
-        setLoadingStatus(false)
-      }
+    const persistedEmail = sessionPendingEmail ?? getPendingEmail()
+    if (persistedEmail) {
+      setEmail(persistedEmail)
+    } else if (userEmail) {
+      setEmail(userEmail)
+      setPendingEmail(userEmail)
+      setSessionPendingEmail(userEmail)
     }
-
-    void hydrateSession()
-  }, [hasHydrated, sessionPendingEmail, setSessionPendingEmail, isAuthed, signOut])
+  }, [hasHydrated, sessionPendingEmail, userEmail, setSessionPendingEmail])
 
   const handleSignOut = () => {
-    signOut()
+    authSignOut()
     clearPendingEmail()
     clearSessionPendingEmail()
-    setConnections([])
     setSubmitted(false)
   }
 
@@ -180,7 +151,7 @@ export function Hero() {
           quality, and UV index using AI agents.
         </p>
 
-        {loadingStatus || !initializedAuth ? (
+        {loadingStatus ? (
           <div className="mx-auto mt-6 flex max-w-md items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Checking session…

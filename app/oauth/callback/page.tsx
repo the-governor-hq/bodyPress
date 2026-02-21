@@ -21,19 +21,10 @@ export default function OAuthCallbackPage() {
     }
 
     if (connected) {
-      // Successful connection - redirect to dashboard or onboarding
+      // Successful connection - always redirect to dashboard
       console.log("[OAuth] Device connected:", connected)
-      
-      // Check if user is in onboarding flow
-      const isOnboarding = sessionStorage.getItem("onboarding_flow")
-      
-      if (isOnboarding) {
-        // Redirect to onboarding with connected param
-        router.push(`/onboarding?connected=${connected}`)
-      } else {
-        // Redirect to dashboard
-        router.push("/dashboard")
-      }
+      sessionStorage.removeItem("onboarding_flow")
+      router.push("/dashboard")
     } else {
       // No params, just redirect to dashboard
       router.push("/dashboard")

@@ -1,3 +1,4 @@
+import axios, { AxiosError, AxiosRequestConfig } from "axios"
 import { getToken } from "./auth"
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/$/, "")
@@ -13,39 +14,83 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-  authenticated = false,
-): Promise<T> {
-  const headers: Record<string, string> = {
+// Create axios instance with default config
+const apiClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: 15000, // 15 second timeout
+  headers: {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  }
+  },
+})
 
-  if (authenticated) {
+// Request interceptor to add auth token
+apiClient.interceptors.request.use(
+  (config) => {
     const token = getToken()
-    if (token) headers["Authorization"] = `Bearer ${token}`
-  }
-
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
-
-  if (!res.ok) {
-    let body: unknown
-    try {
-      body = await res.json()
-    } catch {
-      body = await res.text()
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`
     }
+    // Log API calls in development
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, config.data || "")
+    }
+    return config
+  },
+  (error) => {
+    console.error("[API] Request error:", error)
+    return Promise.reject(error)
+  }
+)
+
+// Response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => {
+    // Log successful responses in development
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[API] ✓ ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data)
+    }
+    return response
+  },
+  (error: AxiosError) => {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[API] ✗ Error:", error.message, error.response?.data)
+    }
+    
+    const status = error.response?.status || 500
+    const body = error.response?.data
     const message =
       typeof body === "object" && body !== null && "error" in body
         ? String((body as { error: unknown }).error)
-        : `HTTP ${res.status}`
-    throw new ApiError(res.status, message, body)
+        : error.message || `HTTP ${status}`
+    
+    throw new ApiError(status, message, body)
   }
+)
 
-  if (res.status === 204) return undefined as T
-  return res.json() as Promise<T>
+async function request<T>(
+  path: string,
+  options: AxiosRequestConfig = {},
+  authenticated = false,
+): Promise<T> {
+  try {
+    const response = await apiClient.request<T>({
+      url: path,
+      ...options,
+    })
+    return response.data
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status || 500
+      const body = error.response?.data
+      const message =
+        typeof body === "object" && body !== null && "error" in body
+          ? String((body as { error: unknown }).error)
+          : error.message || `HTTP ${status}`
+      throw new ApiError(status, message, body)
+    }
+    throw error
+  }
 }
 
 // ── Subscribers ───────────────────────────────────────────────────────────────
@@ -59,14 +104,14 @@ export interface SubscribeResponse {
 export function subscribe(email: string): Promise<SubscribeResponse> {
   return request<SubscribeResponse>("/v1/subscribers", {
     method: "POST",
-    body: JSON.stringify({ email }),
+    data: { email },
   })
 }
 
 export function unsubscribe(email: string): Promise<void> {
   return request<void>("/v1/subscribers", {
     method: "DELETE",
-    body: JSON.stringify({ email }),
+    data: { email },
   })
 }
 
@@ -79,7 +124,7 @@ export interface MagicLinkResponse {
 export function requestMagicLink(email: string): Promise<MagicLinkResponse> {
   return request<MagicLinkResponse>("/v1/auth/request-link", {
     method: "POST",
-    body: JSON.stringify({ email }),
+    data: { email },
   })
 }
 
@@ -118,7 +163,7 @@ export interface UpdateProfilePayload {
 }
 
 export function updateProfile(payload: UpdateProfilePayload): Promise<MeResponse> {
-  return request<MeResponse>("/v1/profile", { method: "PATCH", body: JSON.stringify(payload) }, true)
+  return request<MeResponse>("/v1/profile", { method: "PATCH", data: payload }, true)
 }
 
 // ── OAuth ─────────────────────────────────────────────────────────────────────

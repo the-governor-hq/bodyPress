@@ -52,24 +52,36 @@ export default function OnboardingPage() {
     const isPreferencesStep = currentStep === 1 // 0=welcome, 1=preferences, 2=connect, 3=success
     const isConnectStep = currentStep === 2
 
+    console.log("[Onboarding] Current step:", currentStep, STEPS[currentStep].title)
+    console.log("[Onboarding] Form data:", formData)
+
     // Persist formData to localStorage on every advance
     setOnboardingData(formData)
 
     if (isPreferencesStep) {
       // After preferences, send magic link if not yet authenticated
       const email = getPendingEmail()
-      if (email && !isAuthenticated()) {
+      const authenticated = isAuthenticated()
+      console.log("[Onboarding] Preferences step - Email:", email, "Authenticated:", authenticated)
+      
+      if (email && !authenticated) {
         try {
+          console.log("[Onboarding] Requesting magic link for:", email)
           await requestMagicLink(email)
-        } catch {
+          console.log("[Onboarding] Magic link sent successfully")
+        } catch (err) {
+          console.error("[Onboarding] Magic link error:", err)
           // Non-blocking — user may already have a valid link
         }
+      } else {
+        console.log("[Onboarding] Skipping magic link - Email:", !!email, "Not Authenticated:", !authenticated)
       }
     }
 
     if (isConnectStep && isAuthenticated()) {
       // Save profile before moving to success
       setSubmitting(true)
+      console.log("[Onboarding] Connect step - Saving profile...")
       try {
         await updateProfile({
           name: formData.name || undefined,
@@ -77,7 +89,9 @@ export default function OnboardingPage() {
           timezone: formData.timezone || undefined,
           onboardingDone: true,
         })
+        console.log("[Onboarding] Profile saved successfully")
       } catch (err) {
+        console.error("[Onboarding] Profile update error:", err)
         if (err instanceof ApiError && err.status !== 401) {
           // Still advance on non-auth errors; profile can be updated later
         }

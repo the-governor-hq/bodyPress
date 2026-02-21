@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
-import { verifyMagicLink, updateProfile, ApiError } from "@/lib/api"
+import { verifyMagicLink, updateProfile, getMe, ApiError } from "@/lib/api"
 import { setToken, getOnboardingData, clearOnboardingData, markKnownEmail } from "@/lib/auth"
 
 type State = "verifying" | "success" | "error"
@@ -51,6 +51,15 @@ export default function VerifyPage() {
         setToken(res.token)
         markKnownEmail(res.user.email)
 
+        let onboardingDone = Boolean(res.user.onboardingDone)
+        try {
+          const me = await getMe()
+          onboardingDone = me.onboardingDone
+          markKnownEmail(me.email)
+        } catch {
+          // Non-blocking: fallback to verify response/default
+        }
+
         // Flush any saved onboarding preferences
         const saved = getOnboardingData()
         if (saved.name || saved.goals?.length || saved.timezone) {
@@ -69,7 +78,7 @@ export default function VerifyPage() {
         setMessage("")
 
         // If onboarding is not done, go back to onboarding connect step
-        const destination = res.user.onboardingDone ? "/dashboard" : "/onboarding"
+        const destination = onboardingDone ? "/dashboard" : "/onboarding"
         sessionStorage.setItem(doneKey, "true")
         sessionStorage.setItem(destinationKey, destination)
         setTimeout(() => {

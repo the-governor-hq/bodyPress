@@ -203,7 +203,7 @@ export function requestMagicLink(payload: RequestMagicLinkPayload | string): Pro
 
 export interface VerifyTokenResponse {
   token: string
-  user: { id: string; email: string; name?: string; onboardingDone: boolean }
+  user: { id?: string; email: string; name?: string; onboardingDone?: boolean }
 }
 
 function isVerifyTokenResponse(value: unknown): value is VerifyTokenResponse {
@@ -216,14 +216,52 @@ function isVerifyTokenResponse(value: unknown): value is VerifyTokenResponse {
       email?: unknown
       onboardingDone?: unknown
     }
+    userId?: unknown
+    email?: unknown
   }
 
-  return (
-    typeof maybe.token === "string" &&
-    typeof maybe.user?.id === "string" &&
-    typeof maybe.user?.email === "string" &&
-    typeof maybe.user?.onboardingDone === "boolean"
-  )
+  const hasNestedUser =
+    maybe.user &&
+    typeof maybe.user === "object" &&
+    typeof maybe.user.email === "string"
+
+  const hasFlatUser = typeof maybe.email === "string"
+
+  return typeof maybe.token === "string" && Boolean(hasNestedUser || hasFlatUser)
+}
+
+function normalizeVerifyTokenResponse(value: unknown): VerifyTokenResponse {
+  const parsed = value as {
+    token: string
+    user?: {
+      id?: string
+      email: string
+      name?: string
+      onboardingDone?: boolean
+    }
+    userId?: string
+    email?: string
+  }
+
+  if (parsed.user && typeof parsed.user.email === "string") {
+    return {
+      token: parsed.token,
+      user: {
+        id: parsed.user.id,
+        email: parsed.user.email,
+        name: parsed.user.name,
+        onboardingDone: parsed.user.onboardingDone,
+      },
+    }
+  }
+
+  return {
+    token: parsed.token,
+    user: {
+      id: parsed.userId,
+      email: String(parsed.email),
+    },
+  }
 }
 
 export async function verifyMagicLink(token: string): Promise<VerifyTokenResponse> {
@@ -231,14 +269,14 @@ export async function verifyMagicLink(token: string): Promise<VerifyTokenRespons
     `/v1/auth/verify?token=${encodeURIComponent(token)}`,
   )
 
-  if (isVerifyTokenResponse(response)) return response
+  if (isVerifyTokenResponse(response)) return normalizeVerifyTokenResponse(response)
 
   const wrapped =
     response && typeof response === "object" && "data" in response
       ? (response as { data?: unknown }).data
       : undefined
 
-  if (isVerifyTokenResponse(wrapped)) return wrapped
+  if (isVerifyTokenResponse(wrapped)) return normalizeVerifyTokenResponse(wrapped)
 
   throw new ApiError(500, "Unexpected verification response format", response)
 }

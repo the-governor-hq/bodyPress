@@ -402,7 +402,7 @@ export function disconnectDevice(provider: "garmin" | "fitbit"): Promise<Disconn
 
 export interface Connection {
   provider: string
-  status: "connected" | "disconnected" | "error"
+  status: "active" | "connected" | "disconnected" | "error"
   connectedAt?: string
   lastSync?: string
   health?: {

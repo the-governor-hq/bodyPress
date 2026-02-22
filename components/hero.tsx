@@ -74,7 +74,7 @@ export function Hero() {
 
   const connectedProviders = connections.filter(
     (conn) =>
-      conn.status === "connected" &&
+      (conn.status === "connected" || conn.status === "active") &&
       (conn.provider.toLowerCase() === "garmin" || conn.provider.toLowerCase() === "fitbit"),
   )
 

@@ -167,44 +167,34 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Debug Panel (Development Only) */}
-        {process.env.NODE_ENV === 'development' && (
-          <section className="mb-8 p-4 rounded-lg bg-yellow-500/10 border-2 border-yellow-500/50">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">🔍 Debug Info</h3>
-              <button
-                onClick={() => loadConnections(true)}
-                className="text-xs px-3 py-1 rounded bg-yellow-600 text-white hover:bg-yellow-700"
-              >
-                Force Refresh
-              </button>
-            </div>
-            <div className="space-y-2 text-xs font-mono">
-              <div>
-                <strong>Connections Count:</strong> {connections.length}
-              </div>
-              <div>
-                <strong>Raw Data:</strong>
-                <pre className="mt-1 p-2 bg-black/20 rounded overflow-x-auto max-h-40 overflow-y-auto">
-                  {JSON.stringify(connections, null, 2)}
-                </pre>
-              </div>
-              {connections.length === 0 && (
-                <div className="text-red-600 dark:text-red-400 font-semibold">
-                  ⚠️ No connections in API response! Check backend logs.
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
         {/* Connected Devices */}
         <section className="mb-12">
-          <h2 className="text-2xl font-semibold mb-6">Connected Devices</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold">Connected Devices</h2>
+            <div className="flex items-center gap-3">
+              {process.env.NODE_ENV === 'development' && (
+                <span className="text-xs px-2 py-1 rounded bg-muted font-mono">
+                  {connections.length} connection{connections.length !== 1 ? 's' : ''} loaded
+                </span>
+              )}
+              <button
+                onClick={() => loadConnections(true)}
+                disabled={loading}
+                className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-border hover:bg-secondary transition-all disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                )}
+                Refresh
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {DEVICES.map((device) => {
               const connection = getConnectionStatus(device.id)
-              const isConnected = connection?.status === "connected"
+              const isConnected = connection?.status === "connected" || connection?.status === "active"
               const isSyncing = syncing === device.id
               const isDisconnecting = disconnecting === device.id
 
@@ -264,6 +254,31 @@ export default function DashboardPage() {
                           {connection.health.details}
                         </p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Debug Info for Development */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-xs">
+                      <div className="font-semibold text-yellow-600 dark:text-yellow-400 mb-2">
+                        🔍 Debug Data
+                      </div>
+                      <div className="space-y-1 font-mono text-[10px]">
+                        <div><strong>Provider:</strong> {device.id}</div>
+                        <div><strong>Found in API:</strong> {connection ? 'Yes' : 'No'}</div>
+                        {connection && (
+                          <>
+                            <div><strong>Status:</strong> {connection.status}</div>
+                            <div><strong>Provider (API):</strong> {connection.provider}</div>
+                            <div className="mt-2 pt-2 border-t border-yellow-500/30">
+                              <strong>Raw:</strong>
+                              <pre className="mt-1 p-1 bg-black/20 rounded overflow-x-auto">
+                                {JSON.stringify(connection, null, 2)}
+                              </pre>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   )}
 

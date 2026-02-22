@@ -119,7 +119,7 @@ export function useAuthSession() {
     verifySession()
   }, [hasHydrated, initializedAuth, isAuthed, signOut, setAuthError, clearAuthError, retryCount])
 
-  const hasConnectedDevice = connections.some((conn) => conn.status === "connected")
+  const hasConnectedDevice = connections.some((conn) => conn.status === "connected" || conn.status === "active")
 
   return {
     isAuthed,

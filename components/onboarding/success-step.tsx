@@ -25,9 +25,9 @@ export function SuccessStep({ formData }: SuccessStepProps) {
       origin: { y: 0.6 },
     })
 
-    // Redirect to dashboard after 3 seconds
+    // Redirect to dashboard after 3 seconds with a fresh flag to bypass cache
     const timeout = setTimeout(() => {
-      router.push("/dashboard")
+      router.push("/dashboard?refresh=1")
     }, 3000)
 
     return () => clearTimeout(timeout)

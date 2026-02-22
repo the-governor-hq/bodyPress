@@ -30,6 +30,7 @@ function OnboardingContent() {
   const { isAuthed, loading, hasConnectedDevice, error: sessionError, isOnline } = useAuthSession()
   const [currentStep, setCurrentStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
+  const [justConnectedDevice, setJustConnectedDevice] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     goals: [] as string[],
@@ -37,13 +38,13 @@ function OnboardingContent() {
     device: "",
   })
 
-  // Redirect to dashboard if already connected
+  // Redirect to dashboard if already connected (but not if we just completed OAuth)
   useEffect(() => {
-    if (!loading && isAuthed && hasConnectedDevice) {
+    if (!loading && isAuthed && hasConnectedDevice && !justConnectedDevice) {
       console.log("[Onboarding] User has connected device; redirecting to dashboard.")
       router.replace(AUTH_ROUTES.DASHBOARD)
     }
-  }, [loading, isAuthed, hasConnectedDevice, router])
+  }, [loading, isAuthed, hasConnectedDevice, justConnectedDevice, router])
 
   // Hydrate saved onboarding data
   useEffect(() => {
@@ -71,9 +72,11 @@ function OnboardingContent() {
     // Handle OAuth callback success
     const connected = searchParams.get("connected")
     if (connected) {
+      console.log("[Onboarding] OAuth success detected for:", connected)
       setFormData((prev) => ({ ...prev, device: connected }))
       setOnboardingData({ device: connected })
       setCurrentStep(3)
+      setJustConnectedDevice(true) // Prevent auto-redirect, let Success step handle it
       sessionStorage.removeItem("onboarding_flow")
     }
   }, [searchParams, router])

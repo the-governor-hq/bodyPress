@@ -30,6 +30,7 @@ const DEVICES = [
 
 export default function DashboardPage() {
   const router = useRouter()
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
   const isAuthed = useAuthStore((state) => state.isAuthed)
   const initializedAuth = useAuthStore((state) => state.initialized)
   const initializeAuth = useAuthStore((state) => state.initializeAuth)
@@ -52,14 +53,26 @@ export default function DashboardPage() {
       return
     }
 
-    loadConnections()
+    // Force refresh if coming from onboarding with new connection
+    const shouldRefresh = searchParams.get('refresh') === '1'
+    if (shouldRefresh) {
+      console.log('[Dashboard] Fresh connection detected, forcing refresh')
+      // Clean URL
+      window.history.replaceState({}, '', '/dashboard')
+    }
+    loadConnections(shouldRefresh)
   }, [router, isAuthed, initializedAuth])
 
-  const loadConnections = async () => {
+  const loadConnections = async (forceRefresh = false) => {
     try {
       setLoading(true)
-      const response = await getConnections()
+      const response = await getConnections(forceRefresh)
       setConnections(response.connections)
+      console.log('[Dashboard] Loaded connections:', {
+        count: response.connections.length,
+        connections: response.connections,
+        raw: JSON.stringify(response, null, 2)
+      })
     } catch (err) {
       console.error("Failed to load connections:", err)
       if (err instanceof ApiError && err.status === 401) {
@@ -153,6 +166,37 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
+
+        {/* Debug Panel (Development Only) */}
+        {process.env.NODE_ENV === 'development' && (
+          <section className="mb-8 p-4 rounded-lg bg-yellow-500/10 border-2 border-yellow-500/50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">🔍 Debug Info</h3>
+              <button
+                onClick={() => loadConnections(true)}
+                className="text-xs px-3 py-1 rounded bg-yellow-600 text-white hover:bg-yellow-700"
+              >
+                Force Refresh
+              </button>
+            </div>
+            <div className="space-y-2 text-xs font-mono">
+              <div>
+                <strong>Connections Count:</strong> {connections.length}
+              </div>
+              <div>
+                <strong>Raw Data:</strong>
+                <pre className="mt-1 p-2 bg-black/20 rounded overflow-x-auto max-h-40 overflow-y-auto">
+                  {JSON.stringify(connections, null, 2)}
+                </pre>
+              </div>
+              {connections.length === 0 && (
+                <div className="text-red-600 dark:text-red-400 font-semibold">
+                  ⚠️ No connections in API response! Check backend logs.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Connected Devices */}
         <section className="mb-12">

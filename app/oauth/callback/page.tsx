@@ -32,7 +32,7 @@ function OAuthCallbackContent() {
     }
 
     if (connected) {
-      // Successful connection - always redirect to dashboard
+      // Successful connection - always redirect to dashboard with refresh flag
       console.log("[OAuth] Device connected:", connected)
       sessionStorage.removeItem("onboarding_flow")
       
@@ -42,7 +42,8 @@ function OAuthCallbackContent() {
         duration: 3000,
       })
       
-      router.push(AUTH_ROUTES.DASHBOARD)
+      // Force refresh to get latest connection status
+      router.push(`${AUTH_ROUTES.DASHBOARD}?refresh=1`)
     } else {
       // No params, just redirect to dashboard
       router.push(AUTH_ROUTES.DASHBOARD)

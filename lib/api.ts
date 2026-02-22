@@ -415,8 +415,22 @@ export interface ConnectionsResponse {
   connections: Connection[]
 }
 
-export function getConnections(): Promise<ConnectionsResponse> {
-  return request<ConnectionsResponse>("/v1/wearables/connections", {}, true)
+export function getConnections(forceRefresh = false): Promise<ConnectionsResponse> {
+  const config: AxiosRequestConfig = forceRefresh
+    ? {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+        params: { _t: Date.now() }, // Cache-busting query param
+      }
+    : {}
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[API] getConnections called with forceRefresh:', forceRefresh)
+  }
+  
+  return request<ConnectionsResponse>("/v1/wearables/connections", config, true)
 }
 
 export interface SyncResponse {

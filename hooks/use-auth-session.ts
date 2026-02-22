@@ -74,6 +74,12 @@ export function useAuthSession() {
         const [me, connectionResponse] = await Promise.all([getMe(), getConnections()])
         setConnections(connectionResponse.connections)
         setUserEmail(me.email)
+        
+        console.log('[useAuthSession] Session verified:', {
+          email: me.email,
+          connectionCount: connectionResponse.connections.length,
+          connections: connectionResponse.connections
+        })
       } catch (err) {
         console.error("[useAuthSession] Failed to verify session:", err)
         

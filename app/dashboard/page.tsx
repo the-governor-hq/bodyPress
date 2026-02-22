@@ -28,6 +28,39 @@ const DEVICES = [
   },
 ] as const
 
+// Obfuscate sensitive data for debug display
+const obfuscateDebugData = (obj: any): any => {
+  if (obj === null || obj === undefined) return obj
+  
+  if (Array.isArray(obj)) {
+    return obj.map(obfuscateDebugData)
+  }
+  
+  if (typeof obj === 'object') {
+    const result: any = {}
+    for (const [key, value] of Object.entries(obj)) {
+      const lowerKey = key.toLowerCase()
+      // Obfuscate fields that look like IDs, tokens, secrets, or email
+      if (lowerKey.includes('id') || lowerKey.includes('token') || 
+          lowerKey.includes('secret') || lowerKey.includes('key') ||
+          lowerKey.includes('email')) {
+        if (typeof value === 'string' && value.length > 4) {
+          result[key] = value.substring(0, 4) + '•••' + value.substring(value.length - 2)
+        } else if (typeof value === 'string') {
+          result[key] = '•••'
+        } else {
+          result[key] = value
+        }
+      } else {
+        result[key] = obfuscateDebugData(value)
+      }
+    }
+    return result
+  }
+  
+  return obj
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
@@ -271,9 +304,9 @@ export default function DashboardPage() {
                             <div><strong>Status:</strong> {connection.status}</div>
                             <div><strong>Provider (API):</strong> {connection.provider}</div>
                             <div className="mt-2 pt-2 border-t border-yellow-500/30">
-                              <strong>Raw:</strong>
+                              <strong>Raw (IDs obfuscated):</strong>
                               <pre className="mt-1 p-1 bg-black/20 rounded overflow-x-auto">
-                                {JSON.stringify(connection, null, 2)}
+                                {JSON.stringify(obfuscateDebugData(connection), null, 2)}
                               </pre>
                             </div>
                           </>

@@ -19,12 +19,12 @@ export function WelcomeStep({ formData, updateFormData }: WelcomeStepProps) {
   }, [name])
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-8 md:p-12">
-      <div className="text-center mb-8">
+    <div className="bg-card border border-border rounded-2xl p-6 md:p-10">
+      <div className="text-center mb-6">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
           <Sparkles className="w-8 h-8" />
         </div>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
           Welcome to BodyPress
         </h1>
         <p className="text-muted-foreground text-lg max-w-md mx-auto">

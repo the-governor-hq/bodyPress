@@ -53,8 +53,8 @@ export function CtaSection() {
   }
 
   return (
-    <section className="px-4 py-16 sm:px-6 sm:py-20">
-      <div className="mx-auto max-w-2xl rounded-xl sm:rounded-2xl border border-border bg-card p-6 sm:p-10 text-center md:p-14">
+    <section className="px-4 py-12 sm:px-6 sm:py-16">
+      <div className="mx-auto max-w-2xl rounded-xl sm:rounded-2xl border border-border bg-card p-6 sm:p-8 text-center md:p-10">
         <h2 className="text-balance text-2xl sm:text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           Start reading your body
         </h2>

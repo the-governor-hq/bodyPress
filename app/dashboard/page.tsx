@@ -147,7 +147,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
       
-      <main className="container mx-auto px-4 py-16 max-w-4xl">
+      <main className="container mx-auto px-4 pt-24 pb-8 max-w-4xl">
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
             Dashboard
@@ -168,7 +168,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Connected Devices */}
-        <section className="mb-12">
+        <section className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold">Connected Devices</h2>
             <div className="flex items-center gap-3">
@@ -201,7 +201,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={device.id}
-                  className={`p-6 rounded-xl border-2 transition-all ${
+                  className={`p-5 rounded-xl border-2 transition-all ${
                     isConnected
                       ? "border-primary bg-primary/5"
                       : "border-border bg-card"
@@ -338,7 +338,7 @@ export default function DashboardPage() {
 
         {/* Quick Stats */}
         <section>
-          <h2 className="text-2xl font-semibold mb-6">Quick Stats</h2>
+          <h2 className="text-2xl font-semibold mb-4">Quick Stats</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { icon: Activity, label: "Activities", value: "Coming Soon" },
@@ -347,7 +347,7 @@ export default function DashboardPage() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="p-6 rounded-xl border border-border bg-card"
+                className="p-5 rounded-xl border border-border bg-card"
               >
                 <div className="flex items-center gap-3 mb-2">
                   <stat.icon className="w-5 h-5 text-primary" />

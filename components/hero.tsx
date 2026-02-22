@@ -122,7 +122,7 @@ export function Hero() {
   }
 
   return (
-    <section className="relative flex min-h-[90vh] flex-col items-center justify-center px-4 pt-24 pb-20 text-center sm:px-6">
+    <section className="relative flex min-h-[90vh] flex-col items-center justify-center px-4 pt-24 pb-16 text-center sm:px-6">
       {/* Ambient glow */}
       <div
         className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2"

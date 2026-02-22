@@ -176,8 +176,8 @@ export function ConnectDeviceStep({ formData, updateFormData }: ConnectDeviceSte
   }
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-8 md:p-12">
-      <div className="mb-8">
+    <div className="bg-card border border-border rounded-2xl p-6 md:p-10">
+      <div className="mb-6">
         <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
           Connect your device
         </h2>
@@ -199,7 +199,7 @@ export function ConnectDeviceStep({ formData, updateFormData }: ConnectDeviceSte
       )}
 
       {/* Device Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         {DEVICES.map((device) => (
           <motion.div
             key={device.id}

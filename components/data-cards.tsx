@@ -74,9 +74,9 @@ const metrics = [
 
 export function DataCards() {
   return (
-    <section className="px-4 py-16 sm:px-6 sm:py-20">
+    <section className="px-4 py-12 sm:px-6 sm:py-16">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-10 sm:mb-12 text-center">
+        <div className="mb-8 sm:mb-10 text-center">
           <h2 className="text-balance text-2xl sm:text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             All your signals, one briefing
           </h2>
@@ -90,7 +90,7 @@ export function DataCards() {
           {metrics.map((m) => (
             <div
               key={m.label}
-              className={`group relative overflow-hidden rounded-xl border ${m.borderColor} ${m.bgColor} p-3.5 sm:p-5 transition-all hover:scale-[1.02]`}
+              className={`group relative overflow-hidden rounded-xl border ${m.borderColor} ${m.bgColor} p-3 sm:p-4 transition-all hover:scale-[1.02]`}
             >
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <m.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${m.color}`} />

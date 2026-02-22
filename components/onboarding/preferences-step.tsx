@@ -48,8 +48,8 @@ export function PreferencesStep({ formData, updateFormData }: PreferencesStepPro
   }
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-8 md:p-12">
-      <div className="mb-8">
+    <div className="bg-card border border-border rounded-2xl p-6 md:p-10">
+      <div className="mb-6">
         <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
           What are your goals?
         </h2>
@@ -58,7 +58,7 @@ export function PreferencesStep({ formData, updateFormData }: PreferencesStepPro
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         {GOALS.map((goal) => {
           const Icon = goal.icon
           const isSelected = selectedGoals.includes(goal.id)

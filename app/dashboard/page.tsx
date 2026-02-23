@@ -14,6 +14,17 @@ import {
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
 import { useAuthStore } from "@/lib/auth-store"
+import { toast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const DEVICES = [
   {
@@ -73,6 +84,8 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [signingOut, setSigningOut] = useState(false)
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState<string | null>(null)
+  const [signOutDialogOpen, setSignOutDialogOpen] = useState(false)
 
   useEffect(() => {
     initializeAuth()
@@ -121,17 +134,22 @@ export default function DashboardPage() {
   }
 
   const handleDisconnect = async (provider: "garmin" | "fitbit") => {
-    if (!confirm(`Are you sure you want to disconnect your ${provider} device?`)) {
-      return
-    }
-
     try {
       setDisconnecting(provider)
+      setDisconnectDialogOpen(null)
       await disconnectDevice(provider)
       await loadConnections()
+      toast({
+        title: "Device disconnected",
+        description: `Your ${provider.charAt(0).toUpperCase() + provider.slice(1)} device has been disconnected successfully.`,
+      })
     } catch (err) {
       console.error("Failed to disconnect:", err)
-      alert("Failed to disconnect device. Please try again.")
+      toast({
+        title: "Disconnect failed",
+        description: "Failed to disconnect device. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setDisconnecting(null)
     }
@@ -142,10 +160,17 @@ export default function DashboardPage() {
       setSyncing(provider)
       await triggerSync(provider)
       await loadConnections()
-      alert(`${provider} sync triggered successfully!`)
+      toast({
+        title: "Sync complete",
+        description: `Your ${provider.charAt(0).toUpperCase() + provider.slice(1)} data has been synced successfully.`,
+      })
     } catch (err) {
       console.error("Failed to sync:", err)
-      alert("Failed to sync device. Please try again.")
+      toast({
+        title: "Sync failed",
+        description: "Failed to sync device. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setSyncing(null)
     }
@@ -156,12 +181,9 @@ export default function DashboardPage() {
   }
 
   const handleSignOut = async () => {
-    if (!confirm("Sign out from this browser session?")) {
-      return
-    }
-
     try {
       setSigningOut(true)
+      setSignOutDialogOpen(false)
     } finally {
       signOut()
       router.replace("/")
@@ -190,7 +212,7 @@ export default function DashboardPage() {
               Manage your connected devices and view your health data
             </p>
             <button
-              onClick={handleSignOut}
+              onClick={() => setSignOutDialogOpen(true)}
               disabled={signingOut}
               className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:border-destructive hover:bg-destructive/10 disabled:opacity-60"
             >
@@ -336,7 +358,7 @@ export default function DashboardPage() {
                           )}
                         </button>
                         <button
-                          onClick={() => handleDisconnect(device.id as "garmin" | "fitbit")}
+                          onClick={() => setDisconnectDialogOpen(device.id)}
                           disabled={isDisconnecting}
                           className="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-lg border border-border hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -396,6 +418,46 @@ export default function DashboardPage() {
       </main>
 
       <SiteFooter />
+
+      {/* Disconnect Device Dialog */}
+      <AlertDialog open={disconnectDialogOpen !== null} onOpenChange={(open) => !open && setDisconnectDialogOpen(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Device</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disconnect your {disconnectDialogOpen ? DEVICES.find(d => d.id === disconnectDialogOpen)?.name : 'device'}? 
+              You can reconnect it anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => disconnectDialogOpen && handleDisconnect(disconnectDialogOpen as "garmin" | "fitbit")}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Sign Out Dialog */}
+      <AlertDialog open={signOutDialogOpen} onOpenChange={setSignOutDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign Out</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to sign out from this browser session?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSignOut}>
+              Sign Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

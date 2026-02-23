@@ -4,9 +4,9 @@ import { Sparkles, MapPin, Clock } from "lucide-react"
 
 export function SampleBriefing() {
   return (
-    <section className="px-4 py-16 sm:px-6 sm:py-20">
+    <section className="px-4 py-12 sm:px-6 sm:py-16">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-10 sm:mb-12 text-center">
+        <div className="mb-8 sm:mb-10 text-center">
           <h2 className="text-balance text-2xl sm:text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             {"Here's"} what your briefing looks like
           </h2>
@@ -39,7 +39,7 @@ export function SampleBriefing() {
           </div>
 
           {/* Email body */}
-          <div className="px-4 py-5 sm:px-6 sm:py-6">
+          <div className="px-4 py-4 sm:px-6 sm:py-5">
             {/* Location bar */}
             <div className="mb-5 sm:mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs text-muted-foreground">
               <div className="flex items-center gap-1">

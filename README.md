@@ -21,7 +21,6 @@ BodyPress transforms your wearable device data into personalized, actionable dai
 - **Styling:** [Tailwind CSS 4](https://tailwindcss.com/)
 - **UI Components:** [Radix UI](https://www.radix-ui.com/)
 - **Icons:** [Lucide React](https://lucide.dev/)
-- **Analytics:** [Vercel Analytics](https://vercel.com/analytics)
 - **Deployment:** [Vercel](https://vercel.com) (recommended)
 
 ## 🚀 Getting Started

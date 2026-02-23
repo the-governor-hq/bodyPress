@@ -25,16 +25,16 @@ export function SuccessStep({ formData }: SuccessStepProps) {
       origin: { y: 0.6 },
     })
 
-    // Redirect to home after 3 seconds
+    // Redirect to dashboard after 3 seconds with a fresh flag to bypass cache
     const timeout = setTimeout(() => {
-      router.push("/")
+      router.push("/dashboard?refresh=1")
     }, 3000)
 
     return () => clearTimeout(timeout)
   }, [router])
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-8 md:p-12">
+    <div className="bg-card border border-border rounded-2xl p-6 md:p-10">
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
@@ -49,7 +49,7 @@ export function SuccessStep({ formData }: SuccessStepProps) {
           You're all set{formData.name ? `, ${formData.name}` : ""}!
         </h1>
 
-        <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
+        <p className="text-muted-foreground text-lg mb-6 max-w-md mx-auto">
           Your first daily briefing will arrive tomorrow morning with
           personalized insights from your{" "}
           {formData.device === "garmin"
@@ -60,7 +60,7 @@ export function SuccessStep({ formData }: SuccessStepProps) {
           .
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mb-6">
           {[
             {
               icon: "📊",

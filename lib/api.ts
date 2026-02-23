@@ -439,32 +439,19 @@ export interface SyncResponse {
 }
 
 export interface TriggerSyncPayload {
+  provider: "garmin" | "fitbit"
   startDate?: string
   endDate?: string
+  daysBack?: number
 }
 
 export function triggerSync(
   provider: "garmin" | "fitbit",
-  payload?: TriggerSyncPayload,
+  payload?: Omit<TriggerSyncPayload, "provider">,
 ): Promise<SyncResponse> {
   return request<SyncResponse>(
-    `/v1/wearables/${provider}/sync`,
-    { method: "POST", data: payload },
-    true,
-  )
-}
-
-export interface TriggerBackfillPayload {
-  daysBack?: number
-}
-
-export function triggerBackfill(
-  provider: "garmin" | "fitbit",
-  payload?: TriggerBackfillPayload,
-): Promise<SyncResponse> {
-  return request<SyncResponse>(
-    `/v1/wearables/${provider}/backfill`,
-    { method: "POST", data: payload },
+    "/v1/wearables/sync",
+    { method: "POST", data: { provider, ...payload } },
     true,
   )
 }

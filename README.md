@@ -1,5 +1,9 @@
 # BodyPress
 
+> [!NOTE]
+> **This project may be moving to a native iOS/Android app** using **Health Connect** (Android) and **HealthKit** (iOS).
+> Follow the new developments here: [bodyPress-flutter](https://github.com/organizations/the-governor-hq/bodyPress-flutter)
+
 > **Your Body, Briefed Daily** — AI-powered health insights from your wearable data
 
 BodyPress transforms your wearable device data into personalized, actionable daily briefings. Get contextual health insights combining sleep metrics, HRV, heart rate, weather conditions, air quality, and UV index — all delivered to your inbox every morning.

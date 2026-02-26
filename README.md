@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > **This project may be moving to a native iOS/Android app** using **Health Connect** (Android) and **HealthKit** (iOS).
-> Follow the new developments here: [bodyPress-flutter](https://github.com/organizations/the-governor-hq/bodyPress-flutter)
+> Follow the new developments here: [bodyPress-flutter](https://github.com/the-governor-hq/bodyPress-flutter)
 
 > **Your Body, Briefed Daily** — AI-powered health insights from your wearable data
 
@@ -159,3 +159,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ---
 
 Initial Built using V0, [Next.js](https://nextjs.org/) and [Tailwind CSS](https://tailwindcss.com/)
+

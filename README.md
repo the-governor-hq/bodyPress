@@ -60,32 +60,33 @@ Under the hood the app treats the human body as an observable system: collect ob
 
 ## Features
 
-| Feature                  | Description                                                                                                                                                                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI Journal**           | Daily narrative generated from real sensor data — headline, mood, summary, full body text. Written in first-person ("your body speaking to you").                                                                                       |
-| **Smart Refresh**        | Persisted entries return instantly. AI runs only when new unprocessed captures exist. No redundant sensor reads or API calls.                                                                                                           |
-| **Background Captures**  | WorkManager-based periodic data collection with quiet-hour and battery-awareness support.                                                                                                                                               |
-| **Manual Capture**       | On-demand snapshot with toggleable data sources (health, environment, location, calendar, BLE HR device).                                                                                                                               |
-| **BLE Heart Rate**       | Real-time streaming from any Bluetooth Low Energy Heart Rate Profile (0x180D) device — Polar H10, Wahoo TICKR, Garmin straps, etc. Live ECG-style waveform displayed in the Capture screen. Snapshot BPM auto-attached to each capture. |
-| **Cardiovascular Depth** | Resting heart rate and HRV (SDNN) read from HealthKit / Health Connect alongside average HR. All three are included in daily snapshots and AI prompts.                                                                                  |
-| **Patterns & Trends**    | AI-derived insights aggregated from capture history — energy distribution, recurring themes, notable signals, recent moments timeline.                                                                                                  |
-| **User Annotations**     | Free-text notes and mood emojis per day, persisted in SQLite alongside the AI-generated content.                                                                                                                                        |
-| **Onboarding**           | Step-by-step permission flow with per-permission explanations and privacy notes. Every step is skippable.                                                                                                                               |
-| **Dark & Light Themes**  | Material 3 theming with system-mode detection.                                                                                                                                                                                          |
+| Feature                  | Description                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI Journal**           | Daily narrative generated from real sensor data — headline, mood, summary, full body text. Written in first-person ("your body speaking to you").                                                                                                                                                                                                                                                     |
+| **Smart Refresh**        | Persisted entries return instantly. AI runs only when new unprocessed captures exist. No redundant sensor reads or API calls.                                                                                                                                                                                                                                                                         |
+| **Background Captures**  | WorkManager-based periodic data collection with quiet-hour and battery-awareness support.                                                                                                                                                                                                                                                                                                             |
+| **Manual Capture**       | On-demand snapshot with toggleable data sources (health, environment, location, calendar, BLE HR device).                                                                                                                                                                                                                                                                                             |
+| **BLE Heart Rate**       | Real-time streaming from any Bluetooth Low Energy Heart Rate Profile (0x180D) device — Polar H10, Wahoo TICKR, Garmin straps, etc. Live ECG-style waveform in the Capture screen. **Continuous session recording** accumulates timestamped BPM samples and raw RR intervals for the full connection duration; RMSSD, SDNN, and mean-RR are computed at capture time and stored alongside the session. |
+| **HRV & Autonomic Tone** | RMSSD / SDNN computed from BLE RR intervals at every capture. A plain-language stress hint and a BPM arc narrative are generated and passed to the AI so it can interpret cardiac state as a story, not just a number.                                                                                                                                                                                |
+| **Cardiovascular Depth** | Resting heart rate and HRV (SDNN) also read from HealthKit / Health Connect alongside average HR. All three are included in daily snapshots and AI prompts.                                                                                                                                                                                                                                           |
+| **Patterns & Trends**    | AI-derived insights aggregated from capture history — energy distribution, recurring themes, notable signals, recent moments timeline.                                                                                                                                                                                                                                                                |
+| **User Annotations**     | Free-text notes and mood emojis per day, persisted in SQLite alongside the AI-generated content.                                                                                                                                                                                                                                                                                                      |
+| **Onboarding**           | Step-by-step permission flow with per-permission explanations and privacy notes. Every step is skippable.                                                                                                                                                                                                                                                                                             |
+| **Dark & Light Themes**  | Material 3 theming with system-mode detection.                                                                                                                                                                                                                                                                                                                                                        |
 
 ---
 
 ## Data Sources
 
-| Domain             | Sensor / API                        | What's read                                                |
-| ------------------ | ----------------------------------- | ---------------------------------------------------------- |
-| **Movement**       | Health Connect / HealthKit          | Steps, distance, calories, workouts                        |
-| **Cardiovascular** | Optical HR sensor (OS health store) | Average HR, resting HR, HRV (SDNN)                         |
-| **Cardiovascular** | BLE HR strap (direct, 0x180D)       | Live BPM stream + RR intervals — no OS sync needed         |
-| **Sleep**          | Device sleep tracking               | Duration, phases                                           |
-| **Environment**    | GPS → ambient-scan API              | Temperature, humidity, AQI, UV, pressure, wind, conditions |
-| **Schedule**       | Device calendar (CalDAV)            | Today's events                                             |
-| **Location**       | GPS (Geolocator)                    | Coordinates — ephemeral, never stored                      |
+| Domain             | Sensor / API                        | What's read                                                                                            |
+| ------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Movement**       | Health Connect / HealthKit          | Steps, distance, calories, workouts                                                                    |
+| **Cardiovascular** | Optical HR sensor (OS health store) | Average HR, resting HR, HRV (SDNN)                                                                     |
+| **Cardiovascular** | BLE HR strap (direct, 0x180D)       | Continuous BPM session + RR intervals → RMSSD / SDNN / mean-RR; full `BleHrSession` stored per capture |
+| **Sleep**          | Device sleep tracking               | Duration, phases                                                                                       |
+| **Environment**    | GPS → ambient-scan API              | Temperature, humidity, AQI, UV, pressure, wind, conditions                                             |
+| **Schedule**       | Device calendar (CalDAV)            | Today's events                                                                                         |
+| **Location**       | GPS (Geolocator)                    | Coordinates — ephemeral, never stored                                                                  |
 
 > **Privacy:** GPS is read once to fetch environmental data, then discarded. No location history is recorded or transmitted. Health data is read-only — the app never writes to HealthKit or Health Connect.
 
@@ -102,7 +103,7 @@ Under the hood the app treats the human body as an observable system: collect ob
 | Location         | `geolocator` ^13.0.2                  | GPS coordinates                                                         |
 | Calendar         | `device_calendar` ^4.3.2              | CalDAV read                                                             |
 | HTTP             | `http` ^1.2.2                         | Ambient-scan & AI API calls                                             |
-| Persistence      | `sqflite` ^2.3.3 + `path`             | Local SQLite (entries, captures, settings) — schema v7                  |
+| Persistence      | `sqflite` ^2.3.3 + `path`             | Local SQLite (entries, captures, settings) — schema v9                  |
 | Background       | `workmanager` ^0.9.0                  | Periodic background captures                                            |
 | Notifications    | `flutter_local_notifications` ^17.0.0 | Daily reminders                                                         |
 | Sharing          | `share_plus` ^10.1.0                  | Share journal entries                                                   |
@@ -192,12 +193,12 @@ lib/
 │   │   ├── journal_ai_service  # Prompt → AI → JournalAiResult
 │   │   ├── capture_metadata_service  # Per-capture background AI metadata
 │   │   ├── ai_service        #   HTTP client for ai.governor-hq.com
-│   │   ├── local_db_service  #   SQLite CRUD (schema v7)
+│   │   ├── local_db_service  #   SQLite CRUD (schema v9)
 │   │   ├── capture_service   #   Multi-source data → CaptureEntry
 │   │   ├── background_capture_service  # WorkManager scheduler
 │   │   ├── context_window_service  # 7-day rolling context builder
 │   │   ├── health_service    #   HealthKit / Health Connect (HR, resting HR, HRV)
-│   │   ├── ble_heart_rate_service  # BLE 0x180D scan/connect/stream + RR parsing
+│   │   ├── ble_heart_rate_service  # BLE 0x180D scan/connect/stream + RR parsing + BleHrSession/BleHrvMetrics
 │   │   ├── location_service  #   Geolocator wrapper
 │   │   ├── ambient_scan_service  # Environment API
 │   │   ├── gps_metrics_service   # Real-time GPS metrics
@@ -289,15 +290,15 @@ Will be replaced by a classifier or LLM prompt once sufficient labelled data exi
 
 ## Screens
 
-| #   | Screen             | Route               | Description                                                                                                                                                                                                                    |
-| --- | ------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **Onboarding**     | `/onboarding`       | Permission flow — location, health, calendar. Every step skippable.                                                                                                                                                            |
-| 2   | **Journal**        | `/journal` (Tab 0)  | Paginated daily blog. Swipe between days. Pull-to-refresh + "Refresh day" on today's card.                                                                                                                                     |
-| 3   | **Journal Detail** | —                   | Full narrative: Sleep, Movement, Heart, Environment, Agenda. AI regeneration & mood/note editor.                                                                                                                               |
-| 4   | **Patterns**       | `/patterns` (Tab 1) | Energy distribution, top themes, keyword tags, notable signals, recent moments timeline.                                                                                                                                       |
-| 5   | **Capture**        | `/capture` (Tab 2)  | Manual capture with toggleable data sources. **BLE HR chip** opens a device scanner; once connected, a live ECG-style waveform slides in above the sensor row. Tapping the shutter snapshots the current BPM into the capture. |
-| 6   | **Environment**    | `/environment`      | Expanded environmental data view.                                                                                                                                                                                              |
-| 7   | **Debug**          | `/debug`            | Raw sensor readouts — health metrics, GPS, ambient data, calendar events.                                                                                                                                                      |
+| #   | Screen             | Route               | Description                                                                                                                                                                                                                                                                                                                                           |
+| --- | ------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Onboarding**     | `/onboarding`       | Permission flow — location, health, calendar. Every step skippable.                                                                                                                                                                                                                                                                                   |
+| 2   | **Journal**        | `/journal` (Tab 0)  | Paginated daily blog. Swipe between days. Pull-to-refresh + "Refresh day" on today's card.                                                                                                                                                                                                                                                            |
+| 3   | **Journal Detail** | —                   | Full narrative: Sleep, Movement, Heart, Environment, Agenda. AI regeneration & mood/note editor.                                                                                                                                                                                                                                                      |
+| 4   | **Patterns**       | `/patterns` (Tab 1) | Energy distribution, top themes, keyword tags, notable signals, recent moments timeline.                                                                                                                                                                                                                                                              |
+| 5   | **Capture**        | `/capture` (Tab 2)  | Manual capture with toggleable data sources. **BLE HR chip** opens a device scanner; once connected, a live ECG-style waveform slides in. BPM samples + RR intervals are recorded continuously for the full session; RMSSD / SDNN are computed at shutter press and the full `BleHrSession` is stored with the capture and included in the AI prompt. |
+| 6   | **Environment**    | `/environment`      | Expanded environmental data view.                                                                                                                                                                                                                                                                                                                     |
+| 7   | **Debug**          | `/debug`            | Raw sensor readouts — health metrics, GPS, ambient data, calendar events.                                                                                                                                                                                                                                                                             |
 
 ---
 
@@ -340,7 +341,7 @@ Understanding these three layers prevents accidental slowdowns:
 
 ### Database Migrations
 
-Schema version lives in `local_db_service.dart` (`_schemaVersion`, currently **7**).
+Schema version lives in `local_db_service.dart` (`_schemaVersion`, currently **9**).
 
 1. Bump `_schemaVersion`.
 2. Add an `if (oldVersion < N)` block in `_onUpgrade()`.
@@ -402,12 +403,14 @@ These are enforced by `CODING_PRINCIPLES.md`.
 - [x] Resting heart rate + HRV (SDNN) from HealthKit / Health Connect — included in `BodySnapshot` and AI prompts
 - [x] BLE Heart Rate Profile (0x180D) — device scan, connect, live BPM stream with RR intervals
 - [x] Live ECG-style PQRST waveform widget (`LiveHrWaveform`) in the Capture screen
-- [x] BLE snapshot BPM auto-attached to captures (`bleHeartRate` param in `CaptureService`)
+- [x] Continuous BLE HR session recording — timestamped BPM samples accumulated for the full connection duration
+- [x] Real-time HRV from BLE RR intervals — RMSSD, SDNN, mean-RR computed at capture time (`BleHrvMetrics`)
+- [x] Full `BleHrSession` (samples + RR + HRV) stored per capture in SQLite (schema v9)
+- [x] BLE HR narrative fed to AI — BPM arc + autonomic tone hint (`hrvContext`, `hrArc`) in `CaptureAiMetadata`
 
 ### Next — BLE Peripherals
 
 - [ ] Continuous background BLE data collection while app is backgrounded
-- [ ] Real-time HRV derived from BLE RR intervals (RMSSD, pNN50)
 - [ ] BLE pulse oximeters (SpO₂) and smart scales
 
 ### Next — Home Automation

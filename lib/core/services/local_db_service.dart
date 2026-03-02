@@ -35,7 +35,7 @@ class LocalDbService {
   static const _tableSettings = 'settings';
   static const _tableCaptures = 'captures';
   static const _tableVersions = 'body_blog_versions';
-  static const _schemaVersion = 8;
+  static const _schemaVersion = 9;
 
   Database? _db;
 
@@ -100,7 +100,8 @@ class LocalDbService {
         execution_duration_ms INTEGER,
         errors           TEXT    NOT NULL DEFAULT '[]',
         battery_level    INTEGER,
-        ai_metadata      TEXT
+        ai_metadata      TEXT,
+        ble_hr_session   TEXT
       )
     ''');
     await db.execute('''
@@ -219,6 +220,7 @@ class LocalDbService {
     }
     if (oldVersion < 8) {
       // v7 → v8: add immutable version-history table for body blog entries
+
       await db.execute('''
         CREATE TABLE IF NOT EXISTS $_tableVersions (
           id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -238,6 +240,16 @@ class LocalDbService {
         CREATE INDEX IF NOT EXISTS idx_versions_date
         ON $_tableVersions(date DESC)
       ''');
+    }
+    if (oldVersion < 9) {
+      // v8 → v9: add BLE HR session column to captures
+      try {
+        await db.execute(
+          'ALTER TABLE $_tableCaptures ADD COLUMN ble_hr_session TEXT',
+        );
+      } catch (e) {
+        if (!e.toString().toLowerCase().contains('duplicate column')) rethrow;
+      }
     }
   }
 

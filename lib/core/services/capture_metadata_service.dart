@@ -6,6 +6,7 @@ import '../models/ai_models.dart';
 import '../models/capture_ai_metadata.dart';
 import '../models/capture_entry.dart';
 import 'ai_service.dart';
+import 'ble_heart_rate_service.dart';
 import 'local_db_service.dart';
 
 /// Background service that generates [CaptureAiMetadata] for every new capture.
@@ -289,7 +290,54 @@ class CaptureMetadataService {
       }
       buf.writeln();
     }
+    // ── BLE HR Session ────────────────────────────────────────────────────
+    final session = c.bleHrSession;
+    if (session != null && session.samples.isNotEmpty) {
+      buf.writeln('═══ LIVE BLE HEART RATE SESSION ═══');
+      buf.writeln(
+        'This is a continuous recording from a BLE chest strap / HR monitor,',
+      );
+      buf.writeln('captured in real time while the user held the shutter.');
+      buf.writeln();
 
+      final dur = session.duration;
+      final mins = dur.inMinutes;
+      final secs = dur.inSeconds % 60;
+      buf.writeln('• Device       : ${session.deviceName ?? "BLE HR device"}');
+      buf.writeln(
+        '• Duration     : ${mins}m ${secs}s (${session.samples.length} readings)',
+      );
+      buf.writeln(
+        '• BPM range    : min ${session.minBpm} / avg ${session.avgBpm} / max ${session.maxBpm}',
+      );
+      buf.writeln('• BPM trend    : ${session.bpmTrend}');
+
+      final hrv = session.hrv;
+      if (hrv != null) {
+        buf.writeln();
+        buf.writeln('HRV (from ${session.rrMs.length} RR intervals):');
+        if (hrv.rmssd != null) {
+          buf.writeln(
+            '  RMSSD : ${hrv.rmssd!.toStringAsFixed(1)} ms  → ${hrv.stressHint}',
+          );
+        }
+        if (hrv.sdnn != null) {
+          buf.writeln('  SDNN  : ${hrv.sdnn!.toStringAsFixed(1)} ms');
+        }
+        if (hrv.meanRr != null) {
+          buf.writeln(
+            '  Mean RR: ${hrv.meanRr!.toStringAsFixed(0)} ms  (= ~${(60000 / hrv.meanRr!).toStringAsFixed(0)} bpm avg from RR)',
+          );
+        }
+      } else {
+        buf.writeln('  HRV: device did not report RR intervals');
+      }
+      buf.writeln();
+
+      // Micro-narrative: build a sentence describing the arc.
+      _writeBleNarrative(buf, session);
+      buf.writeln();
+    }
     // ── Environment Data ──────────────────────────────────────────────────
     final e = c.environmentData;
     if (e != null) {
@@ -380,10 +428,41 @@ class CaptureMetadataService {
   "social_context": "<alone|with-others|unknown>",
   "body_signal": "<primary body state: well-rested|fatigued|energized|recovering|stressed|calm>",
   "environment_score": <1-10 based on AQI, UV, weather>,
-  "pattern_hints": ["<2-3 correlation hypotheses like: post-workout-energy, weekday-stress, weather-mood-link>"]
+  "pattern_hints": ["<2-3 correlation hypotheses like: post-workout-energy, weekday-stress, weather-mood-link>"],
+  "hrv_context": "<null, or a brief interpretation of the HRV/HR data: e.g. relaxed-autonomic-tone, pre-exertion-elevated, post-workout-recovery>",
+  "hr_arc": "<null, or one sentence describing the BPM story: trend, notable spikes, what it may suggest>"
 }''');
 
     return buf.toString();
+  }
+
+  /// Writes a one-sentence narrative of the BLE HR session arc into [buf].
+  void _writeBleNarrative(StringBuffer buf, BleHrSession session) {
+    if (session.samples.isEmpty) return;
+    final first = session.samples.first.bpm;
+    final last = session.samples.last.bpm;
+    final avg = session.avgBpm ?? first;
+    final max = session.maxBpm ?? first;
+    final min = session.minBpm ?? first;
+    final trend = session.bpmTrend;
+
+    buf.writeln('HR STORY (use this as narrative context for ai):');
+    buf.write(
+      '  BPM started at $first, averaged $avg, peaked at $max, settled to $last bpm. '
+      'Overall trend: $trend.',
+    );
+    if (max - min >= 20) {
+      buf.write(
+        ' Notable swing of ${max - min} bpm — possible activity or stress spike.',
+      );
+    }
+    final hrv = session.hrv;
+    if (hrv?.rmssd != null) {
+      buf.write(
+        ' Autonomic tone: ${hrv!.stressHint} (RMSSD ${hrv.rmssd!.toStringAsFixed(1)} ms).',
+      );
+    }
+    buf.writeln();
   }
 
   /// Parse the raw AI text into a [CaptureAiMetadata], stripping any accidental

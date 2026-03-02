@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../services/ble_heart_rate_service.dart';
 import 'capture_ai_metadata.dart';
 
 /// Where a capture originated.
@@ -88,6 +89,10 @@ class CaptureEntry {
   /// Device battery percentage at the time of capture.
   final int? batteryLevel;
 
+  /// Continuous BLE HR session recorded while the BLE chip was streaming.
+  /// Null when BLE was not connected at capture time.
+  final BleHrSession? bleHrSession;
+
   const CaptureEntry({
     required this.id,
     required this.timestamp,
@@ -107,6 +112,7 @@ class CaptureEntry {
     this.executionDuration,
     this.errors = const [],
     this.batteryLevel,
+    this.bleHrSession,
   });
 
   CaptureEntry copyWith({
@@ -139,6 +145,8 @@ class CaptureEntry {
     List<String>? errors,
     int? batteryLevel,
     bool clearBatteryLevel = false,
+    BleHrSession? bleHrSession,
+    bool clearBleHrSession = false,
   }) {
     return CaptureEntry(
       id: id ?? this.id,
@@ -167,6 +175,9 @@ class CaptureEntry {
       batteryLevel: clearBatteryLevel
           ? null
           : (batteryLevel ?? this.batteryLevel),
+      bleHrSession: clearBleHrSession
+          ? null
+          : (bleHrSession ?? this.bleHrSession),
     );
   }
 
@@ -193,6 +204,7 @@ class CaptureEntry {
     'execution_duration_ms': executionDuration?.inMilliseconds,
     'errors': jsonEncode(errors),
     'battery_level': batteryLevel,
+    'ble_hr_session': bleHrSession?.encode(),
   };
 
   factory CaptureEntry.fromJson(Map<String, dynamic> json) {
@@ -262,6 +274,7 @@ class CaptureEntry {
           ? (jsonDecode(errorsRaw) as List).cast<String>()
           : const [],
       batteryLevel: json['battery_level'] as int?,
+      bleHrSession: BleHrSession.decode(json['ble_hr_session'] as String?),
     );
   }
 }

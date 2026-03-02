@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -11,6 +13,166 @@ class BleHrReading {
   final List<double> rrMs;
 
   const BleHrReading({required this.bpm, this.rrMs = const []});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session recording models
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A single timestamped BPM sample recorded during a BLE session.
+class BleHrSample {
+  final DateTime time;
+  final int bpm;
+
+  const BleHrSample({required this.time, required this.bpm});
+
+  Map<String, dynamic> toJson() => {'t': time.millisecondsSinceEpoch, 'b': bpm};
+
+  factory BleHrSample.fromJson(Map<String, dynamic> j) => BleHrSample(
+    time: DateTime.fromMillisecondsSinceEpoch(j['t'] as int),
+    bpm: j['b'] as int,
+  );
+}
+
+/// HRV metrics derived from RR intervals.
+class BleHrvMetrics {
+  /// Root mean square of successive differences (ms) — primary HRV index.
+  final double? rmssd;
+
+  /// Standard deviation of all RR intervals (ms).
+  final double? sdnn;
+
+  /// Mean RR interval (ms).
+  final double? meanRr;
+
+  const BleHrvMetrics({this.rmssd, this.sdnn, this.meanRr});
+
+  /// Human-readable stress hint derived from RMSSD.
+  /// Low values → higher sympathetic (stress/active); high values → parasympathetic (relaxed).
+  String get stressHint {
+    if (rmssd == null) return 'unknown';
+    if (rmssd! >= 50) return 'relaxed / parasympathetic-dominant';
+    if (rmssd! >= 30) return 'moderate autonomic balance';
+    if (rmssd! >= 15) return 'mild stress / active';
+    return 'high stress / sympathetic-dominant';
+  }
+
+  Map<String, dynamic> toJson() => {
+    'rmssd': rmssd,
+    'sdnn': sdnn,
+    'mean_rr': meanRr,
+  };
+
+  factory BleHrvMetrics.fromJson(Map<String, dynamic> j) => BleHrvMetrics(
+    rmssd: (j['rmssd'] as num?)?.toDouble(),
+    sdnn: (j['sdnn'] as num?)?.toDouble(),
+    meanRr: (j['mean_rr'] as num?)?.toDouble(),
+  );
+
+  /// Compute HRV metrics from a list of RR intervals in milliseconds.
+  /// Returns null when fewer than 3 intervals are available (unreliable).
+  static BleHrvMetrics? compute(List<double> rrMs) {
+    if (rrMs.length < 3) return null;
+
+    final mean = rrMs.reduce((a, b) => a + b) / rrMs.length;
+
+    // RMSSD
+    double sumSqDiff = 0;
+    for (var i = 0; i < rrMs.length - 1; i++) {
+      final diff = rrMs[i + 1] - rrMs[i];
+      sumSqDiff += diff * diff;
+    }
+    final rmssd = math.sqrt(sumSqDiff / (rrMs.length - 1));
+
+    // SDNN
+    double sumSqDev = 0;
+    for (final rr in rrMs) {
+      final dev = rr - mean;
+      sumSqDev += dev * dev;
+    }
+    final sdnn = math.sqrt(sumSqDev / rrMs.length);
+
+    return BleHrvMetrics(rmssd: rmssd, sdnn: sdnn, meanRr: mean);
+  }
+}
+
+/// A complete BLE HR recording session attached to a capture.
+class BleHrSession {
+  /// Timestamped BPM readings (one per second typically).
+  final List<BleHrSample> samples;
+
+  /// All raw RR intervals collected (ms), used for HRV computation.
+  final List<double> rrMs;
+
+  /// HRV metrics computed at save time; null when RR data was unavailable.
+  final BleHrvMetrics? hrv;
+
+  /// Name of the connected BLE device.
+  final String? deviceName;
+
+  const BleHrSession({
+    required this.samples,
+    required this.rrMs,
+    this.hrv,
+    this.deviceName,
+  });
+
+  int? get minBpm =>
+      samples.isEmpty ? null : samples.map((s) => s.bpm).reduce(math.min);
+  int? get maxBpm =>
+      samples.isEmpty ? null : samples.map((s) => s.bpm).reduce(math.max);
+  int? get avgBpm => samples.isEmpty
+      ? null
+      : (samples.map((s) => s.bpm).reduce((a, b) => a + b) / samples.length)
+            .round();
+
+  Duration get duration => samples.length < 2
+      ? Duration.zero
+      : samples.last.time.difference(samples.first.time);
+
+  /// Rough trend: compare last-quarter avg vs first-quarter avg.
+  String get bpmTrend {
+    if (samples.length < 4) return 'stable';
+    final q = samples.length ~/ 4;
+    final early = samples.take(q).map((s) => s.bpm).reduce((a, b) => a + b) / q;
+    final late_ =
+        samples
+            .skip(samples.length - q)
+            .map((s) => s.bpm)
+            .reduce((a, b) => a + b) /
+        q;
+    final delta = late_ - early;
+    if (delta > 5) return 'rising';
+    if (delta < -5) return 'falling';
+    return 'stable';
+  }
+
+  String encode() => jsonEncode({
+    'samples': samples.map((s) => s.toJson()).toList(),
+    'rr_ms': rrMs,
+    'hrv': hrv?.toJson(),
+    'device': deviceName,
+  });
+
+  static BleHrSession? decode(String? raw) {
+    if (raw == null) return null;
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      return BleHrSession(
+        samples: (m['samples'] as List)
+            .map((e) => BleHrSample.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        rrMs: (m['rr_ms'] as List).map((e) => (e as num).toDouble()).toList(),
+        hrv: m['hrv'] != null
+            ? BleHrvMetrics.fromJson(m['hrv'] as Map<String, dynamic>)
+            : null,
+        deviceName: m['device'] as String?,
+      );
+    } catch (e) {
+      debugPrint('[BleHrSession] decode error: $e');
+      return null;
+    }
+  }
 }
 
 /// A BLE device that exposes the Heart Rate service (0x180D).

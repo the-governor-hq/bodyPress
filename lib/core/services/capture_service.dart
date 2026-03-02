@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/capture_entry.dart';
 import 'ambient_scan_service.dart';
+import 'ble_heart_rate_service.dart';
 import 'calendar_service.dart';
 import 'capture_metadata_service.dart';
 import 'gps_metrics_service.dart';
@@ -63,8 +64,9 @@ class CaptureService {
   /// - [tags]: Optional tags for categorization
   /// - [source]: Whether this is a manual or background capture
   /// - [trigger]: What triggered this capture
-  /// - [bleHeartRate]: When provided, overrides the health-service HR reading
-  ///   with a live value obtained from a BLE device.
+  /// - [bleHrSession]: Full BLE HR session with samples, RR intervals, and HRV.
+  ///   When provided, overrides the health-service HR reading with the session
+  ///   average BPM and attaches the full recording to the capture.
   Future<CaptureEntry> createCapture({
     bool includeHealth = true,
     bool includeEnvironment = true,
@@ -75,7 +77,7 @@ class CaptureService {
     List<String> tags = const [],
     CaptureSource source = CaptureSource.manual,
     CaptureTrigger? trigger,
-    int? bleHeartRate,
+    BleHrSession? bleHrSession,
   }) async {
     final stopwatch = Stopwatch()..start();
     final timestamp = DateTime.now();
@@ -111,12 +113,13 @@ class CaptureService {
 
     final results = await Future.wait(futures);
 
-    // Override HR with BLE live reading if provided.
+    // Override HR with BLE session average BPM if a session was recorded.
     CaptureHealthData? healthData = results[0] as CaptureHealthData?;
-    if (bleHeartRate != null) {
+    if (bleHrSession != null) {
+      final bpm = bleHrSession.avgBpm;
       healthData = healthData != null
-          ? healthData.copyWith(heartRate: bleHeartRate)
-          : CaptureHealthData(heartRate: bleHeartRate);
+          ? healthData.copyWith(heartRate: bpm)
+          : CaptureHealthData(heartRate: bpm);
     }
 
     stopwatch.stop();
@@ -140,6 +143,7 @@ class CaptureService {
               : CaptureTrigger.time),
       executionDuration: stopwatch.elapsed,
       errors: errors,
+      bleHrSession: bleHrSession,
     );
 
     // Save to database

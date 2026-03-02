@@ -77,6 +77,15 @@ class CaptureAiMetadata {
   /// Environmental wellness score (1-10) based on AQI, UV, weather.
   final int? environmentScore;
 
+  /// Short interpretation of HRV and HR zone from the BLE session.
+  /// E.g. "relaxed-autonomic-tone", "pre-exertion-elevated".
+  /// Null when no BLE session was recorded.
+  final String? hrvContext;
+
+  /// One-sentence narrative of the BPM arc during this session.
+  /// E.g. "HR rose steadily from 68 to 92 bpm, consistent with light exercise onset."
+  final String? hrArc;
+
   /// When this metadata was generated.
   final DateTime generatedAt;
 
@@ -100,6 +109,8 @@ class CaptureAiMetadata {
     this.patternHints = const [],
     this.bodySignal,
     this.environmentScore,
+    this.hrvContext,
+    this.hrArc,
   });
 
   // ── Serialisation ─────────────────────────────────────────────────────────
@@ -124,6 +135,8 @@ class CaptureAiMetadata {
     if (patternHints.isNotEmpty) 'pattern_hints': patternHints,
     if (bodySignal != null) 'body_signal': bodySignal,
     if (environmentScore != null) 'environment_score': environmentScore,
+    if (hrvContext != null) 'hrv_context': hrvContext,
+    if (hrArc != null) 'hr_arc': hrArc,
   };
 
   factory CaptureAiMetadata.fromJson(Map<String, dynamic> json) {
@@ -152,6 +165,8 @@ class CaptureAiMetadata {
       patternHints: list(json['pattern_hints']),
       bodySignal: json['body_signal'] as String?,
       environmentScore: json['environment_score'] as int?,
+      hrvContext: json['hrv_context'] as String?,
+      hrArc: json['hr_arc'] as String?,
     );
   }
 

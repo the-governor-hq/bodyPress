@@ -52,6 +52,10 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   StreamSubscription<BleHrReading>? _bleHrSub;
   StreamSubscription<BleConnectionState>? _bleStateSub;
 
+  // Continuous recording buffers (cleared after each capture).
+  final List<BleHrSample> _hrSamples = [];
+  final List<double> _allRrMs = [];
+
   List<CaptureEntry>? _recentCaptures;
   int _unprocessedCount = 0;
 
@@ -235,8 +239,14 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         includeCalendar: _includeCalendar,
         userNote: _userNote,
         userMood: _userMood,
-        bleHeartRate: _bleState == BleConnectionState.streaming
-            ? _liveHr
+        bleHrSession:
+            _bleState == BleConnectionState.streaming && _hrSamples.isNotEmpty
+            ? BleHrSession(
+                samples: List.unmodifiable(_hrSamples),
+                rrMs: List.unmodifiable(_allRrMs),
+                hrv: BleHrvMetrics.compute(_allRrMs),
+                deviceName: _bleDeviceName,
+              )
             : null,
       );
 
@@ -246,6 +256,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         _noteController.clear();
         _userNote = null;
         _userMood = null;
+        // Reset recording buffers so the next capture starts fresh.
+        _hrSamples.clear();
+        _allRrMs.clear();
         setState(() => _noteExpanded = false);
         await _loadRecentCaptures();
       }
@@ -291,6 +304,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         _liveHr = null;
         _bleDeviceName = null;
         _bleState = BleConnectionState.idle;
+        _hrSamples.clear();
+        _allRrMs.clear();
       });
     } else {
       setState(() => _includeBleHr = true);
@@ -322,14 +337,19 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
               setState(() {
                 _liveHr = null;
                 _includeBleHr = false;
+                _hrSamples.clear();
+                _allRrMs.clear();
               });
             }
           });
 
-          // Subscribe to HR readings.
+          // Subscribe to HR readings — update live BPM and accumulate session.
           _bleHrSub?.cancel();
           _bleHrSub = _bleService.hrStream.listen((reading) {
             if (!mounted) return;
+            final sample = BleHrSample(time: DateTime.now(), bpm: reading.bpm);
+            _hrSamples.add(sample);
+            if (reading.rrMs.isNotEmpty) _allRrMs.addAll(reading.rrMs);
             setState(() => _liveHr = reading.bpm);
           });
 

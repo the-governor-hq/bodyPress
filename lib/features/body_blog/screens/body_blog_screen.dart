@@ -11,6 +11,7 @@ import '../../../core/models/body_blog_version.dart';
 import '../../../core/services/service_providers.dart';
 import '../../shared/widgets/app_header.dart';
 import '../../shared/widgets/health_permission_card.dart';
+import '../widgets/social_card.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Body Blog — Medium-inspired, Zen home screen
@@ -33,6 +34,7 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
   bool _refreshing = false;
   bool _loadingMore = false;
   bool _isFirstVisit = false;
+  bool _sharing = false;
   static const int _pageSize = 7;
 
   @override
@@ -215,6 +217,18 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
                               right: 0,
                               child: Center(child: _TodayPill(onTap: _goToday)),
                             ),
+
+                          // Floating share FAB — bottom-right, always reachable
+                          Positioned(
+                            bottom: 20,
+                            right: 20,
+                            child: _ShareFab(
+                              sharing: _sharing,
+                              onShare: _entries.isNotEmpty
+                                  ? _shareCurrentEntry
+                                  : null,
+                            ),
+                          ),
                         ],
                       ),
               ),
@@ -252,6 +266,22 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
           ),
         )
         .then((_) => _load()); // refresh list with any AI changes from detail
+  }
+
+  /// Captures the current entry as a high-res editorial card and opens the
+  /// native share sheet. The [SocialCard] is rendered off-screen — the user
+  /// never sees it until it lands in their Stories / Twitter / iMessage.
+  Future<void> _shareCurrentEntry() async {
+    if (_sharing || _entries.isEmpty) return;
+    setState(() => _sharing = true);
+    try {
+      await SocialCardCapture.captureAndShare(
+        context: context,
+        entry: _entries[_currentPage],
+      );
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
   }
 
   Future<void> _showHistory(BuildContext context, DateTime date) async {
@@ -1086,6 +1116,71 @@ class _TodayPill extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SHARE FAB — floating share button, bottom-right of the content area
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _ShareFab extends StatelessWidget {
+  const _ShareFab({required this.sharing, required this.onShare});
+  final bool sharing;
+  final VoidCallback? onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
+    // Frosted-glass pill: icon + label so thumb can't miss it
+    return AnimatedOpacity(
+      opacity: onShare != null ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 250),
+      child: Material(
+        color: dark
+            ? Colors.white.withValues(alpha: 0.10)
+            : Colors.black.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(28),
+        child: InkWell(
+          onTap: sharing ? null : onShare,
+          borderRadius: BorderRadius.circular(28),
+          splashColor: (dark ? Colors.white : Colors.black).withValues(
+            alpha: 0.12,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            child: sharing
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: dark ? Colors.white60 : Colors.black45,
+                    ),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.ios_share_rounded,
+                        size: 17,
+                        color: dark ? Colors.white70 : Colors.black54,
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        'Share',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: dark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),

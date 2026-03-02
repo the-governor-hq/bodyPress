@@ -115,7 +115,7 @@ class _MoreDestination {
 const List<_MoreDestination> _moreDestinations = [
   _MoreDestination(
     icon: Icons.tune_rounded,
-    label: 'Settings',
+    label: 'Environment',
     route: '/environment',
     description: 'Environment & preferences',
   ),

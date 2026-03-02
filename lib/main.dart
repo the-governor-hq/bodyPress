@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,6 +88,21 @@ void main() async {
   }
 
   AppRouter.init(skipOnboarding: skipOnboarding);
+
+  // Silently warm up AI metadata for any captures that were never analyzed
+  // (fire-and-forget failure during capture save, or captures pre-dating
+  // this feature). Runs in the background so Patterns data is ready before
+  // the user navigates there. The re-entrant guard in the service ensures
+  // a subsequent Patterns-screen visit won't spawn a second loop.
+  unawaited(
+    container
+        .read(captureMetadataServiceProvider)
+        .processAllPendingMetadata()
+        .catchError((Object e) {
+          debugPrint('[main] Background metadata catch-up error: $e');
+          return 0;
+        }),
+  );
 
   runApp(UncontrolledProviderScope(container: container, child: const MyApp()));
 }

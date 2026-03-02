@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/ai_models.dart';
 import '../models/capture_ai_metadata.dart';
 import '../models/capture_entry.dart';
 import 'ai_service.dart';
@@ -19,6 +20,10 @@ class CaptureMetadataService {
   final AiService _ai;
   final LocalDbService _db;
 
+  /// Guard that prevents concurrent `processAllPendingMetadata` runs
+  /// (e.g. when the user navigates to Patterns while a catch-up is already running).
+  bool _isProcessingAll = false;
+
   CaptureMetadataService({required AiService ai, required LocalDbService db})
     : _ai = ai,
       _db = db;
@@ -28,20 +33,40 @@ class CaptureMetadataService {
   /// Generate and persist AI metadata for a single capture.
   ///
   /// If the capture already has metadata or cannot be found, this is a no-op.
-  /// Errors are caught and logged — a metadata failure should never surface
-  /// to the user.
+  /// On transient failures (network, timeout) retries once after 10 s.
+  /// Permanent 4xx errors (bad key, malformed request) are not retried.
+  /// All errors are caught and logged — metadata failures never surface to users.
   Future<void> processCapture(String captureId) async {
-    try {
-      final capture = await _db.loadCapture(captureId);
-      if (capture == null || capture.aiMetadata != null) return;
+    const maxAttempts = 2;
+    const retryDelay = Duration(seconds: 10);
 
-      final metadata = await _generateMetadata(capture);
-      if (metadata == null) return;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final capture = await _db.loadCapture(captureId);
+        if (capture == null || capture.aiMetadata != null) return;
 
-      await _db.updateCaptureAiMetadata(captureId, metadata.encode());
-      debugPrint('[CaptureMetadata] ✓ ${captureId.substring(0, 20)}…');
-    } catch (e) {
-      debugPrint('[CaptureMetadata] ✗ error for $captureId: $e');
+        final metadata = await _generateMetadata(capture);
+        if (metadata == null) return;
+
+        await _db.updateCaptureAiMetadata(captureId, metadata.encode());
+        debugPrint('[CaptureMetadata] ✓ ${captureId.substring(0, 20)}…');
+        return;
+      } on AiServiceException catch (e) {
+        debugPrint(
+          '[CaptureMetadata] ✗ AI error for $captureId (attempt $attempt/$maxAttempts): $e',
+        );
+        // Permanent client errors (wrong key, 400 bad request) must not be retried.
+        final isPermanent =
+            e.statusCode != null && e.statusCode! >= 400 && e.statusCode! < 500;
+        if (isPermanent || attempt >= maxAttempts) return;
+        await Future<void>.delayed(retryDelay);
+      } catch (e) {
+        debugPrint(
+          '[CaptureMetadata] ✗ error for $captureId (attempt $attempt/$maxAttempts): $e',
+        );
+        if (attempt >= maxAttempts) return;
+        await Future<void>.delayed(retryDelay);
+      }
     }
   }
 
@@ -50,40 +75,55 @@ class CaptureMetadataService {
   /// [onProgress] is called after each capture attempt with
   /// `(done, total)` counts — use it to drive a progress UI.
   ///
+  /// Concurrent calls are short-circuited: if a run is already in progress
+  /// (e.g. started from the Patterns screen while startup catch-up is running)
+  /// the duplicate call returns 0 immediately without spawning a second loop.
+  ///
   /// Useful on app start to catch up on any captures that failed or were
   /// created before this feature existed. Returns the number processed.
   Future<int> processAllPendingMetadata({
     void Function(int done, int total)? onProgress,
   }) async {
-    final allCaptures = await _db.loadCaptures();
-    final pending = allCaptures.where((c) => c.aiMetadata == null).toList();
-
-    debugPrint(
-      '[CaptureMetadata] Processing ${pending.length} pending captures…',
-    );
-
-    // Report the initial total immediately so the UI can show the denominator.
-    onProgress?.call(0, pending.length);
-
-    int processed = 0;
-    for (final capture in pending) {
-      try {
-        final metadata = await _generateMetadata(capture);
-        if (metadata != null) {
-          await _db.updateCaptureAiMetadata(capture.id, metadata.encode());
-          processed++;
-        }
-      } catch (e) {
-        debugPrint('[CaptureMetadata] ✗ error for ${capture.id}: $e');
-      }
-      // Always tick progress, even on failure, so the bar keeps moving.
-      onProgress?.call(processed, pending.length);
+    if (_isProcessingAll) {
+      debugPrint(
+        '[CaptureMetadata] processAllPendingMetadata already running — skipping duplicate call.',
+      );
+      return 0;
     }
+    _isProcessingAll = true;
+    try {
+      final allCaptures = await _db.loadCaptures();
+      final pending = allCaptures.where((c) => c.aiMetadata == null).toList();
 
-    debugPrint(
-      '[CaptureMetadata] Done — $processed/${pending.length} processed.',
-    );
-    return processed;
+      debugPrint(
+        '[CaptureMetadata] Processing ${pending.length} pending captures…',
+      );
+
+      // Report the initial total immediately so the UI can show the denominator.
+      onProgress?.call(0, pending.length);
+
+      int processed = 0;
+      for (final capture in pending) {
+        try {
+          final metadata = await _generateMetadata(capture);
+          if (metadata != null) {
+            await _db.updateCaptureAiMetadata(capture.id, metadata.encode());
+            processed++;
+          }
+        } catch (e) {
+          debugPrint('[CaptureMetadata] ✗ error for ${capture.id}: $e');
+        }
+        // Always tick progress, even on failure, so the bar keeps moving.
+        onProgress?.call(processed, pending.length);
+      }
+
+      debugPrint(
+        '[CaptureMetadata] Done — $processed/${pending.length} processed.',
+      );
+      return processed;
+    } finally {
+      _isProcessingAll = false;
+    }
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import '../../features/environment/screens/environment_screen.dart';
 import '../../features/journal/screens/journal_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/patterns/screens/patterns_screen.dart';
+import '../../features/sensors/screens/sensors_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/shell/debug_screen.dart';
 
@@ -78,6 +79,29 @@ class AppRouter {
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
             child: const EnvironmentScreen(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) =>
+                    SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(1, 0),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: child,
+                    ),
+          ),
+        ),
+        GoRoute(
+          path: '/sensors',
+          name: 'sensors',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const SensorsScreen(),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) =>
                     SlideTransition(

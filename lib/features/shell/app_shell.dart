@@ -114,6 +114,12 @@ class _MoreDestination {
 /// a permanent spot in the primary navigation.
 const List<_MoreDestination> _moreDestinations = [
   _MoreDestination(
+    icon: Icons.sensors_rounded,
+    label: 'Sensors',
+    route: '/sensors',
+    description: 'Sensor status & data sources',
+  ),
+  _MoreDestination(
     icon: Icons.tune_rounded,
     label: 'Environment',
     route: '/environment',

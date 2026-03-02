@@ -63,6 +63,8 @@ class CaptureService {
   /// - [tags]: Optional tags for categorization
   /// - [source]: Whether this is a manual or background capture
   /// - [trigger]: What triggered this capture
+  /// - [bleHeartRate]: When provided, overrides the health-service HR reading
+  ///   with a live value obtained from a BLE device.
   Future<CaptureEntry> createCapture({
     bool includeHealth = true,
     bool includeEnvironment = true,
@@ -73,6 +75,7 @@ class CaptureService {
     List<String> tags = const [],
     CaptureSource source = CaptureSource.manual,
     CaptureTrigger? trigger,
+    int? bleHeartRate,
   }) async {
     final stopwatch = Stopwatch()..start();
     final timestamp = DateTime.now();
@@ -108,6 +111,14 @@ class CaptureService {
 
     final results = await Future.wait(futures);
 
+    // Override HR with BLE live reading if provided.
+    CaptureHealthData? healthData = results[0] as CaptureHealthData?;
+    if (bleHeartRate != null) {
+      healthData = healthData != null
+          ? healthData.copyWith(heartRate: bleHeartRate)
+          : CaptureHealthData(heartRate: bleHeartRate);
+    }
+
     stopwatch.stop();
 
     final capture = CaptureEntry(
@@ -117,7 +128,7 @@ class CaptureService {
       userNote: userNote,
       userMood: userMood,
       tags: tags,
-      healthData: results[0] as CaptureHealthData?,
+      healthData: healthData,
       environmentData: results[1] as CaptureEnvironmentData?,
       locationData: results[2] as CaptureLocationData?,
       calendarEvents: results[3] as List<String>,

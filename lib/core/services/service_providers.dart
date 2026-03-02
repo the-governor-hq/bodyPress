@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'ai_service_provider.dart';
 import 'ambient_scan_service.dart';
 import 'background_capture_service.dart';
+import 'ble_heart_rate_service.dart';
 import 'body_blog_service.dart';
 import 'calendar_service.dart';
 import 'capture_metadata_service.dart';
@@ -35,6 +36,14 @@ final localDbServiceProvider = Provider<LocalDbService>((ref) {
 // ── Leaf services (no inter-service dependencies) ───────────────────────────
 
 final healthServiceProvider = Provider<HealthService>((_) => HealthService());
+
+/// Singleton BLE Heart Rate service — keeps the Bluetooth connection alive
+/// across rebuild cycles.  Disposed when the ProviderScope is torn down.
+final bleHeartRateServiceProvider = Provider<BleHeartRateService>((ref) {
+  final svc = BleHeartRateService();
+  ref.onDispose(svc.dispose);
+  return svc;
+});
 
 final locationServiceProvider = Provider<LocationService>(
   (_) => LocationService(),

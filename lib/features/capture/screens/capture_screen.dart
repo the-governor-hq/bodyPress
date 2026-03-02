@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -9,7 +10,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/capture_entry.dart';
+import '../../../core/services/ble_heart_rate_service.dart';
 import '../../../core/services/service_providers.dart';
+import '../../../core/widgets/live_hr_waveform.dart';
 
 /// Capture tab — camera-inspired data capture.
 /// Shutter button always visible at the bottom.
@@ -24,6 +27,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     with TickerProviderStateMixin {
   late final _captureService = ref.read(captureServiceProvider);
   late final _metadataService = ref.read(captureMetadataServiceProvider);
+  late final _bleService = ref.read(bleHeartRateServiceProvider);
   final TextEditingController _noteController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -33,11 +37,19 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   bool _includeEnvironment = true;
   bool _includeLocation = true;
   bool _includeCalendar = true;
+  bool _includeBleHr = false;
 
   bool _isCapturing = false;
   String? _userNote;
   String? _userMood;
   bool _noteExpanded = false;
+
+  // BLE heart rate live state
+  int? _liveHr;
+  BleConnectionState _bleState = BleConnectionState.idle;
+  String? _bleDeviceName;
+  StreamSubscription<BleHrReading>? _bleHrSub;
+  StreamSubscription<BleConnectionState>? _bleStateSub;
 
   List<CaptureEntry>? _recentCaptures;
   int _unprocessedCount = 0;
@@ -87,6 +99,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     _fadeController.dispose();
     _pulseController.dispose();
     _captureAnimController.dispose();
+    _bleHrSub?.cancel();
+    _bleStateSub?.cancel();
     super.dispose();
   }
 
@@ -220,6 +234,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         includeCalendar: _includeCalendar,
         userNote: _userNote,
         userMood: _userMood,
+        bleHeartRate: _bleState == BleConnectionState.streaming
+            ? _liveHr
+            : null,
       );
 
       if (mounted) {
@@ -254,6 +271,145 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     final entry = OverlayEntry(builder: (_) => const _CaptureSuccessFlash());
     overlay.insert(entry);
     Future.delayed(const Duration(milliseconds: 400), entry.remove);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // BLE HEART RATE
+  // ─────────────────────────────────────────────────────────────────────
+
+  void _onBleChipTap() {
+    HapticFeedback.selectionClick();
+    if (_bleState == BleConnectionState.streaming ||
+        _bleState == BleConnectionState.connecting) {
+      // Disconnect
+      _bleService.disconnect();
+      _bleHrSub?.cancel();
+      _bleStateSub?.cancel();
+      setState(() {
+        _includeBleHr = false;
+        _liveHr = null;
+        _bleDeviceName = null;
+        _bleState = BleConnectionState.idle;
+      });
+    } else {
+      setState(() => _includeBleHr = true);
+      _showBleDevicePicker();
+    }
+  }
+
+  void _showBleDevicePicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _BleDevicePickerSheet(
+        bleService: _bleService,
+        onDeviceSelected: (device, name) async {
+          Navigator.pop(ctx);
+          setState(() {
+            _bleDeviceName = name;
+            _bleState = BleConnectionState.connecting;
+          });
+
+          // Subscribe to state changes.
+          _bleStateSub?.cancel();
+          _bleStateSub = _bleService.stateStream.listen((s) {
+            if (!mounted) return;
+            setState(() => _bleState = s);
+            if (s == BleConnectionState.idle || s == BleConnectionState.error) {
+              _bleHrSub?.cancel();
+              setState(() {
+                _liveHr = null;
+                _includeBleHr = false;
+              });
+            }
+          });
+
+          // Subscribe to HR readings.
+          _bleHrSub?.cancel();
+          _bleHrSub = _bleService.hrStream.listen((reading) {
+            if (!mounted) return;
+            setState(() => _liveHr = reading.bpm);
+          });
+
+          try {
+            await _bleService.connectAndStream(device);
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('BLE connection failed: $e'),
+                  backgroundColor: Colors.red.shade700,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+              setState(() {
+                _includeBleHr = false;
+                _bleState = BleConnectionState.idle;
+              });
+            }
+          }
+        },
+        onCancel: () {
+          Navigator.pop(ctx);
+          setState(() {
+            _includeBleHr = false;
+            _bleState = BleConnectionState.idle;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildBleWaveformCard(ThemeData theme) {
+    if (_bleState == BleConnectionState.connecting) {
+      return Container(
+        height: 140,
+        decoration: BoxDecoration(
+          color: const Color(0xFF060B0F),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: const Color(0xFF00E676).withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(Color(0xFF00E676)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Connecting to ${_bleDeviceName ?? 'device'}…',
+                style: GoogleFonts.robotoMono(
+                  fontSize: 12,
+                  color: const Color(0xFF00E676).withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 170,
+      child: LiveHrWaveform(
+        hrStream: _bleService.hrStream.map((r) => r.bpm),
+        deviceName: _bleDeviceName,
+        onDisconnect: _onBleChipTap,
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -295,6 +451,16 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                           child: _buildViewfinder(theme, dark),
                         ),
                       ),
+
+                      // Live ECG waveform (only when BLE HR is streaming)
+                      if (_bleState == BleConnectionState.streaming ||
+                          _bleState == BleConnectionState.connecting)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                            child: _buildBleWaveformCard(theme),
+                          ),
+                        ),
 
                       // Sensor chip row
                       SliverToBoxAdapter(
@@ -561,6 +727,18 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
             _includeCalendar,
             () => setState(() => _includeCalendar = !_includeCalendar),
             Colors.purple,
+          ),
+          const SizedBox(width: 8),
+          _sensorChip(
+            theme,
+            dark,
+            Icons.bluetooth_rounded,
+            _bleState == BleConnectionState.streaming
+                ? '${_liveHr ?? '--'} bpm'
+                : 'BLE HR',
+            _includeBleHr,
+            _onBleChipTap,
+            const Color(0xFF00E676),
           ),
         ],
       ),
@@ -1825,6 +2003,231 @@ class _CaptureSuccessFlashState extends State<_CaptureSuccessFlash>
           opacity: (1 - _ctrl.value).clamp(0.0, 0.25),
           child: Container(color: Colors.white),
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BLE DEVICE PICKER SHEET
+// Scans for Heart Rate Profile (0x180D) devices and lets the user pick one.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BleDevicePickerSheet extends StatefulWidget {
+  final BleHeartRateService bleService;
+  final void Function(dynamic device, String name) onDeviceSelected;
+  final VoidCallback onCancel;
+
+  const _BleDevicePickerSheet({
+    required this.bleService,
+    required this.onDeviceSelected,
+    required this.onCancel,
+  });
+
+  @override
+  State<_BleDevicePickerSheet> createState() => _BleDevicePickerSheetState();
+}
+
+class _BleDevicePickerSheetState extends State<_BleDevicePickerSheet> {
+  List<BleHrDevice> _devices = [];
+  bool _scanning = false;
+  StreamSubscription? _devicesSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _startScan();
+  }
+
+  @override
+  void dispose() {
+    _devicesSub?.cancel();
+    widget.bleService.stopScan();
+    super.dispose();
+  }
+
+  Future<void> _startScan() async {
+    setState(() {
+      _scanning = true;
+      _devices = [];
+    });
+    _devicesSub?.cancel();
+    _devicesSub = widget.bleService.devicesStream.listen((devices) {
+      if (mounted) setState(() => _devices = devices);
+    });
+    await widget.bleService.startScan(timeoutSeconds: 12);
+    if (mounted) setState(() => _scanning = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    const accent = Color(0xFF00E676);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF141418) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 4),
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: (dark ? Colors.white : Colors.black).withValues(
+                  alpha: 0.2,
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 16, 12),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.bluetooth_searching_rounded,
+                  color: accent,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Connect HR Device',
+                    style: GoogleFonts.inter(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: dark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+                if (_scanning)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(accent),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: (dark ? Colors.white : Colors.black).withValues(
+                      alpha: 0.4,
+                    ),
+                  ),
+                  onPressed: widget.onCancel,
+                ),
+              ],
+            ),
+          ),
+
+          Text(
+            'Searching for Heart Rate Profile (BLE 0x180D) devices…',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: (dark ? Colors.white : Colors.black).withValues(
+                alpha: 0.4,
+              ),
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 16),
+
+          // Device list or empty state
+          if (_devices.isEmpty && !_scanning)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.bluetooth_disabled_rounded,
+                    size: 40,
+                    color: (dark ? Colors.white : Colors.black).withValues(
+                      alpha: 0.15,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No devices found',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: (dark ? Colors.white : Colors.black).withValues(
+                        alpha: 0.35,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: _startScan,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Retry scan'),
+                    style: TextButton.styleFrom(foregroundColor: accent),
+                  ),
+                ],
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 260),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _devices.length,
+                itemBuilder: (_, i) {
+                  final d = _devices[i];
+                  final bars = ((d.rssi + 100) / 10).clamp(0, 5).toInt();
+                  return ListTile(
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.monitor_heart_rounded,
+                        color: accent,
+                        size: 22,
+                      ),
+                    ),
+                    title: Text(
+                      d.name,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: dark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Signal: ${'▮' * bars}${'▯' * (5 - bars)}  ${d.rssi} dBm',
+                      style: GoogleFonts.robotoMono(
+                        fontSize: 11,
+                        color: (dark ? Colors.white : Colors.black).withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: accent,
+                    ),
+                    onTap: () => widget.onDeviceSelected(d.device, d.name),
+                  );
+                },
+              ),
+            ),
+
+          SizedBox(height: MediaQuery.paddingOf(context).bottom + 16),
+        ],
       ),
     );
   }

@@ -68,6 +68,12 @@
 	<key>NSMotionUsageDescription</key>
 	<string>BodyPress needs access to your motion data to accurately track your activities.</string>
 	
+	<!-- Bluetooth (BLE Heart Rate Devices) -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>BodyPress uses Bluetooth to connect to BLE heart rate monitors (e.g. Polar H10, Wahoo TICKR) for live ECG-style heart rate capture.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>BodyPress uses Bluetooth to connect to BLE heart rate monitors for live ECG-style heart rate capture.</string>
+
 	<!-- Background Modes -->
 	<key>UIBackgroundModes</key>
 	<array>

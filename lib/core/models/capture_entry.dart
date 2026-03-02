@@ -303,6 +303,24 @@ class CaptureHealthData {
       workouts: json['workouts'] as int?,
     );
   }
+
+  CaptureHealthData copyWith({
+    int? steps,
+    double? calories,
+    double? distance,
+    int? heartRate,
+    double? sleepHours,
+    int? workouts,
+  }) {
+    return CaptureHealthData(
+      steps: steps ?? this.steps,
+      calories: calories ?? this.calories,
+      distance: distance ?? this.distance,
+      heartRate: heartRate ?? this.heartRate,
+      sleepHours: sleepHours ?? this.sleepHours,
+      workouts: workouts ?? this.workouts,
+    );
+  }
 }
 
 /// Environmental conditions captured at a moment in time.

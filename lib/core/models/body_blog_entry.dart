@@ -115,6 +115,8 @@ class BodySnapshot {
   final double distanceKm;
   final double sleepHours;
   final int avgHeartRate;
+  final int restingHeartRate;
+  final double? hrv;
   final int workouts;
   final double? temperatureC;
   final int? aqiUs;
@@ -129,6 +131,8 @@ class BodySnapshot {
     this.distanceKm = 0,
     this.sleepHours = 0,
     this.avgHeartRate = 0,
+    this.restingHeartRate = 0,
+    this.hrv,
     this.workouts = 0,
     this.temperatureC,
     this.aqiUs,
@@ -144,6 +148,8 @@ class BodySnapshot {
     'distance_km': distanceKm,
     'sleep_hours': sleepHours,
     'avg_heart_rate': avgHeartRate,
+    'resting_heart_rate': restingHeartRate,
+    'hrv': hrv,
     'workouts': workouts,
     'temperature_c': temperatureC,
     'aqi_us': aqiUs,
@@ -161,6 +167,8 @@ class BodySnapshot {
       distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0,
       sleepHours: (json['sleep_hours'] as num?)?.toDouble() ?? 0,
       avgHeartRate: (json['avg_heart_rate'] as num?)?.toInt() ?? 0,
+      restingHeartRate: (json['resting_heart_rate'] as num?)?.toInt() ?? 0,
+      hrv: (json['hrv'] as num?)?.toDouble(),
       workouts: (json['workouts'] as num?)?.toInt() ?? 0,
       temperatureC: (json['temperature_c'] as num?)?.toDouble(),
       aqiUs: (json['aqi_us'] as num?)?.toInt(),

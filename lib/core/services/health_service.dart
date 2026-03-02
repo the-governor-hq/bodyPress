@@ -11,6 +11,8 @@ class HealthService {
   static final List<HealthDataType> types = [
     HealthDataType.STEPS,
     HealthDataType.HEART_RATE,
+    HealthDataType.RESTING_HEART_RATE,
+    HealthDataType.HEART_RATE_VARIABILITY_SDNN,
     HealthDataType.ACTIVE_ENERGY_BURNED,
     HealthDataType.DISTANCE_DELTA,
     HealthDataType.SLEEP_ASLEEP,
@@ -245,6 +247,63 @@ class HealthService {
     } catch (e) {
       debugPrint('Error getting heart rate: $e');
       return 0;
+    }
+  }
+
+  /// Returns today's resting heart rate as reported by HealthKit / Health Connect.
+  /// Falls back to 0 if not available.
+  Future<int> getTodayRestingHeartRate() async {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+
+    try {
+      final healthData = await _health.getHealthDataFromTypes(
+        types: [HealthDataType.RESTING_HEART_RATE],
+        startTime: startOfDay,
+        endTime: now,
+      );
+
+      if (healthData.isEmpty) return 0;
+
+      // Take the most recent reading.
+      final sorted = healthData.toList()
+        ..sort((a, b) => b.dateFrom.compareTo(a.dateFrom));
+      final latest = sorted.first;
+      if (latest.value is NumericHealthValue) {
+        return (latest.value as NumericHealthValue).numericValue.round();
+      }
+      return 0;
+    } catch (e) {
+      debugPrint('Error getting resting heart rate: $e');
+      return 0;
+    }
+  }
+
+  /// Returns today's latest HRV (SDNN) in milliseconds, or null if unavailable.
+  Future<double?> getTodayHrv() async {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+
+    try {
+      final healthData = await _health.getHealthDataFromTypes(
+        types: [HealthDataType.HEART_RATE_VARIABILITY_SDNN],
+        startTime: startOfDay,
+        endTime: now,
+      );
+
+      if (healthData.isEmpty) return null;
+
+      // Return the most recent HRV sample.
+      final sorted = healthData.toList()
+        ..sort((a, b) => b.dateFrom.compareTo(a.dateFrom));
+      final latest = sorted.first;
+      if (latest.value is NumericHealthValue) {
+        return (latest.value as NumericHealthValue).numericValue.toDouble();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting HRV: $e');
+      return null;
     }
   }
 

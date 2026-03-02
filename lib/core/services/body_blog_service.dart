@@ -349,6 +349,8 @@ class BodyBlogService {
     double dist = 0;
     double sleep = 0;
     int hr = 0;
+    int restingHr = 0;
+    double? hrv;
     int workouts = 0;
 
     try {
@@ -379,6 +381,18 @@ class BodyBlogService {
       hr = await _health.getTodayAverageHeartRate().timeout(
         const Duration(seconds: 5),
         onTimeout: () => 0,
+      );
+    } catch (_) {}
+    try {
+      restingHr = await _health.getTodayRestingHeartRate().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => 0,
+      );
+    } catch (_) {}
+    try {
+      hrv = await _health.getTodayHrv().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
       );
     } catch (_) {}
     try {
@@ -439,6 +453,8 @@ class BodyBlogService {
       distanceKm: dist / 1000,
       sleepHours: sleep,
       avgHeartRate: hr,
+      restingHeartRate: restingHr,
+      hrv: hrv,
       workouts: workouts,
       temperatureC: tempC,
       aqiUs: aqi,

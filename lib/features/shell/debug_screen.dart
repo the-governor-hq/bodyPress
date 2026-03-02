@@ -360,6 +360,18 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     _setActionMsg('Test daily notification sent.');
   }
 
+  Future<void> _sendTestSmartNotification() async {
+    try {
+      final contentService = ref.read(notificationContentServiceProvider);
+      final content = await contentService.buildSmartNotification();
+      await _notifService.initialize();
+      await _notifService.showSmartNotification(content);
+      _setActionMsg('Smart notification sent: ${content.title}');
+    } catch (e) {
+      _setActionMsg('Smart notification error: $e');
+    }
+  }
+
   Future<void> _toggleBgCapture() async {
     setState(() => _actionRunning = true);
     try {
@@ -2158,6 +2170,13 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
             icon: Icons.send_outlined,
             color: accent,
             onTap: _sendTestDailyNotification,
+          ),
+          const SizedBox(height: 8),
+          _actionButton(
+            label: 'Send test smart notification',
+            icon: Icons.auto_awesome_outlined,
+            color: Colors.deepPurple,
+            onTap: _sendTestSmartNotification,
           ),
         ],
       ),

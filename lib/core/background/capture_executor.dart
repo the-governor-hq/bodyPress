@@ -6,6 +6,8 @@ import '../models/background_capture_config.dart';
 import '../models/capture_entry.dart';
 import '../services/capture_service.dart';
 import '../services/local_db_service.dart';
+import '../services/notification_content_service.dart';
+import '../services/notification_service.dart';
 
 /// Top-level callback invoked by WorkManager in a background isolate.
 ///
@@ -81,6 +83,9 @@ Future<bool> captureExecutorCallback() async {
         '[CaptureExecutor] Capture ${capture.id} saved '
         '(${stopwatch.elapsedMilliseconds} ms).',
       );
+
+      // 6. Show one data-driven smart notification per day
+      await _maybeShowSmartNotification(dbService);
     } else {
       await _incrementCounter(dbService, 'bg_capture_failure_count');
     }
@@ -96,6 +101,27 @@ Future<bool> captureExecutorCallback() async {
     } catch (_) {}
 
     return false; // signals WorkManager to retry
+  }
+}
+
+/// Fire a smart, data-rich notification — but only once per day.
+Future<void> _maybeShowSmartNotification(LocalDbService db) async {
+  try {
+    final contentService = NotificationContentService(db: db);
+
+    // Guard: skip if we already sent a smart notification today.
+    if (await contentService.wasSmartNotifShownToday()) return;
+
+    final content = await contentService.buildSmartNotification();
+    final notifService = NotificationService();
+    await notifService.initialize();
+    await notifService.showSmartNotification(content);
+    await contentService.markSmartNotifShown();
+
+    debugPrint('[CaptureExecutor] Smart notification shown.');
+  } catch (e) {
+    // Non-fatal — never let notification logic break the capture flow.
+    debugPrint('[CaptureExecutor] Smart notification error: $e');
   }
 }
 

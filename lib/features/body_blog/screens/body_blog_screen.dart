@@ -11,7 +11,10 @@ import '../../../core/models/body_blog_version.dart';
 import '../../../core/services/service_providers.dart';
 import '../../shared/widgets/app_header.dart';
 import '../../shared/widgets/health_permission_card.dart';
+import '../widgets/body_harmony_ring.dart';
+import '../widgets/insight_reflection_card.dart';
 import '../widgets/social_card.dart';
+import '../widgets/vitality_wave.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Body Blog — Medium-inspired, Zen home screen
@@ -424,6 +427,21 @@ class _BlogPage extends StatelessWidget {
 
           // ── snapshot glance ──
           _SnapshotGlance(snapshot: entry.snapshot),
+
+          const SizedBox(height: 28),
+
+          // ── body harmony ring — radial vitals visualization ──
+          BodyHarmonyRing(snapshot: entry.snapshot),
+
+          const SizedBox(height: 20),
+
+          // ── vitality wave — flowing energy visualization ──
+          VitalityWave(snapshot: entry.snapshot, mood: entry.mood),
+
+          const SizedBox(height: 20),
+
+          // ── insight reflection — personal body-mind insight ──
+          InsightReflectionCard(entry: entry),
 
           const SizedBox(height: 28),
 

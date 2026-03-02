@@ -15,6 +15,7 @@ import 'health_service.dart';
 import 'journal_ai_service.dart';
 import 'local_db_service.dart';
 import 'location_service.dart';
+import 'notification_content_service.dart';
 import 'notification_service.dart';
 import 'permission_service.dart';
 
@@ -65,6 +66,13 @@ final permissionServiceProvider = Provider<PermissionService>(
 /// surfaces it so it can be injected / overridden in tests.
 final notificationServiceProvider = Provider<NotificationService>(
   (_) => NotificationService(),
+);
+
+/// Generates data-driven notification content from real captures & blog data.
+final notificationContentServiceProvider = Provider<NotificationContentService>(
+  (ref) {
+    return NotificationContentService(db: ref.read(localDbServiceProvider));
+  },
 );
 
 final gpsMetricsServiceProvider = Provider<GpsMetricsService>((ref) {

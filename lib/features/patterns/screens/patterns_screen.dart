@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/models/capture_entry.dart';
 import '../../../core/services/service_providers.dart';
+import '../../body_blog/widgets/weekly_self_portrait.dart';
 import '../../shared/widgets/app_header.dart';
 
 // ── Data providers ──────────────────────────────────────────────────────────
@@ -206,6 +207,7 @@ class _PatternsScreenState extends ConsumerState<PatternsScreen> {
             final summary = _buildSummary(filtered);
             return _PatternBody(
               summary: summary,
+              filtered: filtered,
               totalCaptures: captures.length,
               theme: theme,
               dark: dark,
@@ -227,6 +229,7 @@ class _PatternsScreenState extends ConsumerState<PatternsScreen> {
 
 class _PatternBody extends StatelessWidget {
   final _PatternSummary summary;
+  final List<CaptureEntry> filtered;
   final int totalCaptures;
   final ThemeData theme;
   final bool dark;
@@ -239,6 +242,7 @@ class _PatternBody extends StatelessWidget {
 
   const _PatternBody({
     required this.summary,
+    required this.filtered,
     required this.totalCaptures,
     required this.theme,
     required this.dark,
@@ -297,6 +301,14 @@ class _PatternBody extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                // ── Weekly Self-Portrait radar visualization ──
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    child: WeeklySelfPortrait(captures: filtered),
+                  ),
+                ),
 
                 if (summary.analyzedCaptures > 0) ...[
                   SliverToBoxAdapter(

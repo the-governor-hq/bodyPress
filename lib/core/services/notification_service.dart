@@ -3,12 +3,14 @@ import 'dart:math';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-/// Thin wrapper around `flutter_local_notifications` scoped to the channels
-/// BodyPress needs.
+import 'notification_content_service.dart';
+
+/// Manages local notifications for BodyPress.
 ///
-/// One channel:
-/// - **Daily Body Blog** — a once-per-day mindful reminder styled as a
-///   "new post from your body".
+/// Two channels:
+/// - **Daily Body Blog** — a scheduled daily reminder (engaging fallback).
+/// - **Smart Insights** — data-driven notifications triggered from
+///   background captures with real biometric data.
 class NotificationService {
   static final NotificationService _instance = NotificationService._();
 
@@ -26,95 +28,132 @@ class NotificationService {
   static const _dailyChannelId = 'bodypress_daily_reminder';
   static const _dailyChannelName = 'Daily Body Blog';
   static const _dailyChannelDescription =
-      'A gentle daily reminder to check in with your body';
+      'A daily reminder to check your body blog';
+
+  static const _smartChannelId = 'bodypress_smart_insights';
+  static const _smartChannelName = 'Smart Body Insights';
+  static const _smartChannelDescription =
+      'Data-driven notifications with your real biometrics';
 
   static const _dailyNotifId = 9001;
+  static const _smartNotifId = 9003;
 
-  // ── Mindful notification messages ───────────────────────────────────────
+  // ── Engaging scheduled messages (emoji-rich, CTA-driven) ───────────────
+  //
+  // These are used by the scheduled daily reminder as a fallback when the
+  // smart (data-aware) notification hasn't fired yet today.  Pick is random
+  // at schedule time — still beats the old generic messages.
 
   static const dailyMessages = <({String title, String body})>[
     (
-      title: 'Your body published a new post',
+      title: '🧬 Your body wrote something today',
       body:
-          'A quiet check-in is waiting. See what today looks like from the inside.',
+          'Steps, sleep, heart — it\'s all there. Open your body blog and see →',
     ),
     (
-      title: 'New entry in your body\'s journal',
-      body: 'Your body has been writing all day. Take a moment to read.',
+      title: '📖 New chapter in your body\'s diary',
+      body: 'Every day tells a different story. Today\'s is waiting →',
     ),
     (
-      title: 'A letter from your body',
-      body: 'Small signals, big insights. Your daily snapshot is ready.',
+      title: '🔬 Your daily body report is in',
+      body: 'Real data, real insights. Read it now →',
     ),
     (
-      title: 'Your body has something to share',
-      body: 'It noticed things you might have missed. Take a gentle look.',
-    ),
-    (
-      title: 'Today\'s body blog is live',
-      body: 'Steps, rest, rhythm — your body summed it all up for you.',
-    ),
-    (
-      title: 'Fresh post from your body',
-      body: 'No rush. Whenever you\'re ready, your daily read is here.',
-    ),
-    (
-      title: 'Your body left you a note',
-      body: 'A few mindful observations about your day so far.',
-    ),
-    (
-      title: 'New chapter in your body story',
-      body: 'Every day writes itself. Here\'s what yours had to say.',
-    ),
-    (
-      title: 'A moment of body awareness',
-      body: 'Pause. Breathe. Your daily body snapshot is waiting.',
-    ),
-    (
-      title: 'Your body checked in',
-      body: 'A simple, honest summary of how you\'re doing today.',
-    ),
-    (
-      title: 'Your wellness digest is ready',
-      body: 'One calm page about your body\'s day. No noise, just truth.',
-    ),
-    (
-      title: 'A gentle nudge from within',
-      body: 'Your body kept notes today. See what it observed.',
-    ),
-    (
-      title: 'Daily body update',
-      body: 'Movement, rest, environment — a mindful recap of your day.',
-    ),
-    (
-      title: 'Your body wrote today\'s page',
-      body: 'Living is writing. Here\'s what your body composed.',
-    ),
-    (
-      title: 'Body blog · new post',
-      body: 'A quiet moment to reconnect with how you\'re really feeling.',
-    ),
-    (
-      title: 'Your inner journal was updated',
+      title: '💡 Your body dropped some knowledge',
       body:
-          'Your body speaks in patterns. Today\'s patterns are ready to read.',
+          'Patterns you didn\'t notice, signals you missed. Check today\'s blog →',
     ),
     (
-      title: 'Listen inward for a moment',
+      title: '🎯 Body check-in time!',
       body:
-          'Your daily body snapshot was just prepared. Take a breath and look.',
+          'Your body tracked everything. See the summary — you might be surprised →',
     ),
     (
-      title: 'Your body has news',
-      body: 'Nothing urgent — just a mindful summary of your day.',
+      title: '⚡ Fresh insights from your body',
+      body:
+          'Heart, steps, sleep, mood — compiled into today\'s story. Don\'t miss it →',
     ),
     (
-      title: 'New post: Today\'s body story',
-      body: 'Some days are loud, some are still. See which kind today was.',
+      title: '🌟 Your body\'s daily dispatch',
+      body: 'No fluff, just your real biometrics as a story. Tap to read →',
     ),
     (
-      title: 'Your daily wellness page',
-      body: 'Written by your body, for you. Simple, honest, and kind.',
+      title: '🧠 Your body is smarter than you think',
+      body: 'It noticed things today. Check what it observed →',
+    ),
+    (
+      title: '🫀 Pulse. Steps. Sleep. Story.',
+      body:
+          'Your body turned today\'s numbers into narrative. Read the latest →',
+    ),
+    (
+      title: '📊 Data in, story out',
+      body:
+          'Your body collected signals all day. BodyPress turned them into insight →',
+    ),
+    (
+      title: '🌊 Ride today\'s body wave',
+      body:
+          'Energy, recovery, movement — your body captured the full picture →',
+    ),
+    (
+      title: '🔋 How\'s your body battery today?',
+      body:
+          'Sleep, steps, and stress all factor in. Your body blog has the answer →',
+    ),
+    (
+      title: '💬 Your body left you a note',
+      body: 'With data. And insights. Open it →',
+    ),
+    (
+      title: '🎤 Your body has the mic today',
+      body: 'Steps, rhythm, environment — all in today\'s narrative →',
+    ),
+    (
+      title: '🪞 Mirror check: the inside edition',
+      body:
+          'Forget appearances — your body blog shows what\'s really happening →',
+    ),
+    (
+      title: '📱 Your body blog just updated',
+      body: 'A day of biometrics distilled into one honest page. Read it →',
+    ),
+    (
+      title: '🏃 Your body kept moving — and writing',
+      body:
+          'Every step, every heartbeat logged. See what the day looked like from inside →',
+    ),
+    (
+      title: '🫣 You haven\'t checked in yet today',
+      body: 'Your body has been talking all day. Don\'t leave it on read →',
+    ),
+    (
+      title: '🔥 Today\'s body blog is fire',
+      body: 'Your biometrics told a story worth reading. Tap to see →',
+    ),
+    (
+      title: '🧘 A moment for body awareness',
+      body: 'Pause. Breathe. Your daily body snapshot is ready →',
+    ),
+    (
+      title: '🌡️ Your body measured the day',
+      body:
+          'Temperature, heart rate, movement — all woven into today\'s narrative →',
+    ),
+    (
+      title: '📝 Your body published a post',
+      body:
+          'First-person account of your day. Written by you — literally. Read it →',
+    ),
+    (
+      title: '🚀 Your body has news',
+      body:
+          'Not just numbers — a story. Steps, rest, environment. All real. All you →',
+    ),
+    (
+      title: '🎯 One tap. Your whole day.',
+      body:
+          'Your body blog summarised everything in one page. Don\'t miss today\'s →',
     ),
   ];
 
@@ -148,6 +187,14 @@ class NotificationService {
           _dailyChannelId,
           _dailyChannelName,
           description: _dailyChannelDescription,
+          importance: Importance.high,
+        ),
+      );
+      await androidImpl.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _smartChannelId,
+          _smartChannelName,
+          description: _smartChannelDescription,
           importance: Importance.high,
         ),
       );
@@ -191,7 +238,8 @@ class NotificationService {
   /// Schedule a daily notification at the given [hour] and [minute].
   ///
   /// Replaces any previously scheduled daily reminder. The notification
-  /// picks a random message from [dailyMessages] each time it fires.
+  /// picks a random message from [dailyMessages] — re-scheduled on every
+  /// app launch so the message rotates.
   Future<void> scheduleDailyReminder({
     required int hour,
     required int minute,
@@ -201,8 +249,6 @@ class NotificationService {
     // Cancel any existing daily reminder first.
     await _plugin.cancel(_dailyNotifId);
 
-    // Pick a random message (the OS will show this; on each day it's
-    // the same until the app reschedules — good enough for v1).
     final msg = dailyMessages[Random().nextInt(dailyMessages.length)];
 
     final now = tz.TZDateTime.now(tz.local);
@@ -214,7 +260,6 @@ class NotificationService {
       hour,
       minute,
     );
-    // If that time already passed today, start from tomorrow.
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
@@ -243,7 +288,7 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time, // ← repeats daily
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 
@@ -253,6 +298,38 @@ class NotificationService {
     await _plugin.cancel(_dailyNotifId);
   }
 
+  // ── Smart data-driven notification ──────────────────────────────────────
+
+  /// Show a data-driven notification with real biometric content.
+  ///
+  /// Called from the background capture executor (once per day) with a
+  /// [NotifContent] produced by [NotificationContentService].
+  Future<void> showSmartNotification(NotifContent content) async {
+    await _ensureInitialised();
+
+    await _plugin.show(
+      _smartNotifId,
+      content.title,
+      content.body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _smartChannelId,
+          _smartChannelName,
+          channelDescription: _smartChannelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+          showWhen: true,
+          styleInformation: BigTextStyleInformation(''),
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+    );
+  }
+
   /// Show a test daily notification immediately (for the debug panel).
   Future<void> showTestDailyReminder() async {
     await _ensureInitialised();
@@ -260,7 +337,7 @@ class NotificationService {
     final msg = dailyMessages[Random().nextInt(dailyMessages.length)];
 
     await _plugin.show(
-      _dailyNotifId + 1, // different ID so it doesn't cancel the real one
+      _dailyNotifId + 1,
       msg.title,
       msg.body,
       const NotificationDetails(

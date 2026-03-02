@@ -22,34 +22,46 @@ void main() async {
   // All provider reads here share the same instances as the widget tree.
   final container = ProviderContainer();
 
-  // Initialise background capture scheduler (re-registers periodic task
-  // if the user previously enabled it).
-  final bgService = container.read(backgroundCaptureServiceProvider);
-  await bgService.initialize();
+  bool skipOnboarding = false;
 
-  // Check whether the user opted out of seeing the intro.
-  final db = container.read(localDbServiceProvider);
-  final skipOnboarding = (await db.getSetting('skip_onboarding')) == 'true';
+  try {
+    // Initialise background capture scheduler (re-registers periodic task
+    // if the user previously enabled it).
+    final bgService = container.read(backgroundCaptureServiceProvider);
+    await bgService.initialize().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => debugPrint('[main] bgService.initialize() timed out'),
+    );
 
-  // Schedule daily reminder — default to 9:00 AM if never configured.
-  final dailyReminderTime = await db.getSetting('daily_reminder_time');
-  final int reminderHour;
-  final int reminderMinute;
-  if (dailyReminderTime != null && dailyReminderTime.isNotEmpty) {
-    final parts = dailyReminderTime.split(':');
-    reminderHour = (parts.length == 2 ? int.tryParse(parts[0]) : null) ?? 9;
-    reminderMinute = (parts.length == 2 ? int.tryParse(parts[1]) : null) ?? 0;
-  } else {
-    reminderHour = 9;
-    reminderMinute = 0;
-    await db.setSetting('daily_reminder_time', '9:0');
+    // Check whether the user opted out of seeing the intro.
+    final db = container.read(localDbServiceProvider);
+    skipOnboarding = (await db.getSetting('skip_onboarding')) == 'true';
+
+    // Schedule daily reminder — default to 9:00 AM if never configured.
+    final dailyReminderTime = await db.getSetting('daily_reminder_time');
+    final int reminderHour;
+    final int reminderMinute;
+    if (dailyReminderTime != null && dailyReminderTime.isNotEmpty) {
+      final parts = dailyReminderTime.split(':');
+      reminderHour = (parts.length == 2 ? int.tryParse(parts[0]) : null) ?? 9;
+      reminderMinute = (parts.length == 2 ? int.tryParse(parts[1]) : null) ?? 0;
+    } else {
+      reminderHour = 9;
+      reminderMinute = 0;
+      await db.setSetting('daily_reminder_time', '9:0');
+    }
+    final notifService = container.read(notificationServiceProvider);
+    await notifService.initialize();
+    await notifService.scheduleDailyReminder(
+      hour: reminderHour,
+      minute: reminderMinute,
+    );
+  } catch (e, st) {
+    // Initialization errors must never prevent the app from launching.
+    // In release builds an unhandled exception here leaves the native splash
+    // screen frozen forever because runApp() would never be reached.
+    debugPrint('[main] Initialization error: $e\n$st');
   }
-  final notifService = container.read(notificationServiceProvider);
-  await notifService.initialize();
-  await notifService.scheduleDailyReminder(
-    hour: reminderHour,
-    minute: reminderMinute,
-  );
 
   AppRouter.init(skipOnboarding: skipOnboarding);
 

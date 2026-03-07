@@ -1,24 +1,136 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+
+/// Lightweight container for IP-based geolocation data.
+class GeoIpLocation {
+  final double latitude;
+  final double longitude;
+  final String? city;
+  final String? region;
+  final String? regionCode;
+  final String? country;
+  final String? countryCode;
+  final String? zip;
+  final String? timezone;
+  final String? isp;
+
+  const GeoIpLocation({
+    required this.latitude,
+    required this.longitude,
+    this.city,
+    this.region,
+    this.regionCode,
+    this.country,
+    this.countryCode,
+    this.zip,
+    this.timezone,
+    this.isp,
+  });
+
+  factory GeoIpLocation.fromJson(Map<String, dynamic> json) {
+    return GeoIpLocation(
+      latitude: (json['lat'] as num).toDouble(),
+      longitude: (json['lon'] as num).toDouble(),
+      city: json['city'] as String?,
+      region: json['region'] as String?,
+      regionCode: json['regionCode'] as String?,
+      country: json['country'] as String?,
+      countryCode: json['countryCode'] as String?,
+      zip: json['zip'] as String?,
+      timezone: json['timezone'] as String?,
+      isp: json['isp'] as String?,
+    );
+  }
+
+  /// Convert to a geolocator [Position] so callers that expect GPS Position
+  /// work transparently.  Accuracy is set to a large value (~5 km) to signal
+  /// that this is an IP-derived estimate, not a real GPS fix.
+  Position toPosition() => Position(
+    latitude: latitude,
+    longitude: longitude,
+    timestamp: DateTime.now(),
+    accuracy: 5000.0, // ~5 km — typical GeoIP accuracy
+    altitude: 0.0,
+    altitudeAccuracy: 0.0,
+    heading: 0.0,
+    headingAccuracy: 0.0,
+    speed: 0.0,
+    speedAccuracy: 0.0,
+  );
+}
 
 class LocationService {
-  // Get current location
+  static const _geoIpUrl = 'https://ambiant-scan.fly.dev/geoip';
+
+  /// Most recent GeoIP result, cached so we don't re-fetch every call.
+  GeoIpLocation? _cachedGeoIp;
+
+  /// Public read-only access to the cached GeoIP data (city, region, etc.).
+  GeoIpLocation? get cachedGeoIp => _cachedGeoIp;
+
+  // Get current location — tries GPS first, falls back to GeoIP.
   Future<Position?> getCurrentLocation() async {
+    // Try GPS first
     try {
       final hasPermission = await _checkPermission();
-      if (!hasPermission) return null;
-
-      return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10,
-        ),
-      );
+      if (hasPermission) {
+        final gpsPosition = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).timeout(const Duration(seconds: 8));
+        return gpsPosition;
+      }
     } catch (e) {
-      debugPrint('Error getting location: $e');
-      return null;
+      debugPrint('GPS location unavailable ($e) — trying GeoIP fallback');
     }
+
+    // Fallback: GeoIP
+    try {
+      final geoIp = await getGeoIpLocation();
+      if (geoIp != null) {
+        debugPrint(
+          'Using GeoIP fallback: ${geoIp.city}, ${geoIp.region} '
+          '(${geoIp.latitude}, ${geoIp.longitude})',
+        );
+        return geoIp.toPosition();
+      }
+    } catch (e) {
+      debugPrint('GeoIP fallback also failed: $e');
+    }
+
+    return null;
   }
+
+  /// Fetch location from IP address via the ambient-scan GeoIP endpoint.
+  /// Returns cached result if already fetched during this session.
+  Future<GeoIpLocation?> getGeoIpLocation() async {
+    if (_cachedGeoIp != null) return _cachedGeoIp;
+
+    try {
+      final response = await http
+          .get(Uri.parse(_geoIpUrl))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        if (json['lat'] != null && json['lon'] != null) {
+          _cachedGeoIp = GeoIpLocation.fromJson(json);
+          return _cachedGeoIp;
+        }
+      }
+    } catch (e) {
+      debugPrint('GeoIP request failed: $e');
+    }
+    return null;
+  }
+
+  /// Whether the last position came from GeoIP (accuracy >= 5000 m).
+  bool isGeoIpPosition(Position position) => position.accuracy >= 5000.0;
 
   // Stream location updates
   Stream<Position> getLocationStream() {

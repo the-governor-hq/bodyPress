@@ -245,23 +245,33 @@ class CaptureService {
         return null;
       }
 
-      // Get city/region/country from ambient scan metadata
       String? city;
       String? region;
       String? country;
 
-      try {
-        final ambientData = await _ambientService.scanByCoordinates(
-          location.latitude,
-          location.longitude,
-        );
-        if (ambientData != null) {
-          city = ambientData.meta.city;
-          region = ambientData.meta.region;
-          country = ambientData.meta.country;
+      // If location came from GeoIP, use cached metadata directly
+      if (_locationService.isGeoIpPosition(location)) {
+        final geoIp = _locationService.cachedGeoIp;
+        if (geoIp != null) {
+          city = geoIp.city;
+          region = geoIp.region;
+          country = geoIp.country;
         }
-      } catch (e) {
-        debugPrint('Error getting location metadata: $e');
+      } else {
+        // GPS-based: reverse geocode via ambient scan metadata
+        try {
+          final ambientData = await _ambientService.scanByCoordinates(
+            location.latitude,
+            location.longitude,
+          );
+          if (ambientData != null) {
+            city = ambientData.meta.city;
+            region = ambientData.meta.region;
+            country = ambientData.meta.country;
+          }
+        } catch (e) {
+          debugPrint('Error getting location metadata: $e');
+        }
       }
 
       return CaptureLocationData(

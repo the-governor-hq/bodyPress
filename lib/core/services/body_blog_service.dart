@@ -416,7 +416,7 @@ class BodyBlogService {
     String? city;
     try {
       final pos = await _location.getCurrentLocation().timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 10),
         onTimeout: () => null,
       );
       if (pos != null) {
@@ -429,6 +429,10 @@ class BodyBlogService {
           uv = env.uvIndex.current;
           weatherDesc = env.conditions.description;
           city = env.meta.city;
+        }
+        // If ambient scan didn't return a city, try GeoIP cache
+        if (city == null || city.isEmpty) {
+          city = _location.cachedGeoIp?.city;
         }
       }
     } catch (_) {}

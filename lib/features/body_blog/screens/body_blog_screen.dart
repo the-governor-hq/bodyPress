@@ -192,12 +192,12 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
                     : IconButton(
                         onPressed: _refresh,
                         icon: Icon(
-                          Icons.chat_bubble_outline,
+                          Icons.auto_awesome_rounded,
                           size: 20,
                           color: (dark ? Colors.white : Colors.black)
                               .withValues(alpha: 0.4),
                         ),
-                        tooltip: 'Ask what\'s up',
+                        tooltip: 'Generate entry',
                         style: IconButton.styleFrom(
                           padding: const EdgeInsets.all(8),
                         ),
@@ -523,12 +523,12 @@ class _BlogPage extends StatelessWidget {
                   : TextButton.icon(
                       onPressed: onRefresh,
                       icon: Icon(
-                        Icons.chat_bubble_outline,
+                        Icons.auto_awesome_rounded,
                         size: 14,
                         color: primary.withValues(alpha: 0.5),
                       ),
                       label: Text(
-                        'Ask again',
+                        'Regenerate',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
@@ -3104,7 +3104,7 @@ class _ToneSelectorBottomSheet extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.chat_bubble_outline,
+                      Icons.auto_awesome_rounded,
                       color: primary,
                       size: 28,
                     ),

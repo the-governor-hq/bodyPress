@@ -181,28 +181,64 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
             children: [
               AppHeader(
                 title: 'BodyPress',
-                primaryAction: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _refreshing
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                primaryAction: _refreshing
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _refresh,
+                          borderRadius: BorderRadius.circular(24),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
                             ),
-                          )
-                        : IconButton(
-                            onPressed: _refresh,
-                            icon: _ShimmerAiIcon(size: 20, dark: dark),
-                            tooltip: 'Generate entry',
-                            style: IconButton.styleFrom(
-                              padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color:
+                                  (dark
+                                          ? Colors.white
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.primary)
+                                      .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color:
+                                    (dark
+                                            ? Colors.white
+                                            : Theme.of(
+                                                context,
+                                              ).colorScheme.primary)
+                                        .withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _ShimmerAiIcon(size: 18, dark: dark),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "What's up?",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: dark
+                                        ? Colors.white70
+                                        : Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                  ],
-                ),
+                        ),
+                      ),
               ),
               // Health permission banner — only visible when health access
               // is not granted on the current device.

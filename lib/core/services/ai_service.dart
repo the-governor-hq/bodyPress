@@ -100,7 +100,7 @@ class AiService {
       try {
         final response = await _client
             .post(
-              Uri.parse('$_baseUrl/v1/chat/completions'),
+              AiProviderConfig.chatCompletionsUri(_baseUrl),
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $_apiKey',

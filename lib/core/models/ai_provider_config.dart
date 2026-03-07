@@ -147,6 +147,19 @@ class AiProviderConfig {
   bool get hasEditableUrl =>
       type == AiProviderType.local || type == AiProviderType.custom;
 
+  /// Builds the chat completions endpoint [Uri] from a raw base URL.
+  ///
+  /// Accepts base URLs with or without a trailing `/v1` suffix, so both
+  /// `https://api.openai.com` and `http://localhost:11434/v1` produce the
+  /// correct `/v1/chat/completions` endpoint.
+  static Uri chatCompletionsUri(String baseUrl) {
+    var normalized = baseUrl.replaceAll(RegExp(r'/+$'), '');
+    if (!normalized.endsWith('/v1')) {
+      normalized = '$normalized/v1';
+    }
+    return Uri.parse('$normalized/chat/completions');
+  }
+
   /// Short description shown as a subtitle in the settings UI.
   String get subtitle {
     switch (type) {

@@ -73,8 +73,7 @@ class AiConfigNotifier extends StateNotifier<AiProviderConfig> {
   Future<bool> testConnection(AiProviderConfig config) async {
     final client = http.Client();
     try {
-      final baseUrl = config.baseUrl.replaceAll(RegExp(r'/+$'), '');
-      final uri = Uri.parse('$baseUrl/v1/chat/completions');
+      final uri = AiProviderConfig.chatCompletionsUri(config.baseUrl);
       final headers = <String, String>{'Content-Type': 'application/json'};
       if (config.apiKey.isNotEmpty) {
         headers['Authorization'] = 'Bearer ${config.apiKey}';

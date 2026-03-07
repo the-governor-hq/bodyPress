@@ -3070,18 +3070,10 @@ class _ToneSelectorBottomSheet extends StatelessWidget {
       initialChildSize: 0.75,
       minChildSize: 0.5,
       maxChildSize: 0.9,
-      builder: (_, scrollController) => Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
+      builder: (_, scrollController) => Material(
+        elevation: 16,
+        color: bgColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         child: Column(
           children: [
             // Drag handle
@@ -3162,7 +3154,11 @@ class _ToneSelectorBottomSheet extends StatelessWidget {
             Expanded(
               child: ListView(
                 controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  bottom: MediaQuery.of(context).padding.bottom + 100,
+                ),
                 children: [
                   _ToneOption(
                     icon: Icons.auto_awesome,

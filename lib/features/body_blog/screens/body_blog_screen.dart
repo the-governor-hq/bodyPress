@@ -57,6 +57,14 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
       final hasData = await db.hasAnyEntries();
       if (!hasData && mounted) {
         setState(() => _isFirstVisit = true);
+      } else if (mounted) {
+        // Returning user — show the same refresh-journey overlay
+        // so the initial load feels as polished as an explicit refresh.
+        setState(() {
+          _refreshing = true;
+          _refreshStage = 0;
+        });
+        _startRefreshStageProgression();
       }
     } catch (_) {}
     await _load();
@@ -89,13 +97,39 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
       }
 
       if (mounted) {
-        setState(() {
-          _entries = [todayEntry, ...pastEntries];
-          _loading = false;
-        });
+        // If the refresh-journey overlay is showing (initial boot),
+        // flash the "done" stage before dismissing it.
+        if (_refreshing) {
+          _refreshStageTimer?.cancel();
+          setState(() {
+            _entries = [todayEntry, ...pastEntries];
+            _loading = false;
+            _refreshStage = 3;
+          });
+          await Future.delayed(const Duration(milliseconds: 900));
+          if (!mounted) return;
+          setState(() {
+            _refreshing = false;
+            _refreshStage = 0;
+            _selectedToneName = null;
+          });
+        } else {
+          setState(() {
+            _entries = [todayEntry, ...pastEntries];
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        _refreshStageTimer?.cancel();
+        setState(() {
+          _loading = false;
+          _refreshing = false;
+          _refreshStage = 0;
+          _selectedToneName = null;
+        });
+      }
     }
   }
 

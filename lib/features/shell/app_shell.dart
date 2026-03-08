@@ -345,6 +345,7 @@ class _ChapterNavContent extends StatelessWidget {
                     },
                     child: item.isMoreTab
                         ? Stack(
+                            alignment: Alignment.center,
                             clipBehavior: Clip.none,
                             children: [
                               _ChapterTab(item: item, isActive: isActive),

@@ -9,6 +9,7 @@ import 'app_update_service.dart';
 import 'background_capture_service.dart';
 import 'ble_heart_rate_service.dart';
 import 'body_blog_service.dart';
+import 'body_dialogue_service.dart';
 import 'calendar_service.dart';
 import 'capture_metadata_service.dart';
 import 'capture_service.dart';
@@ -168,6 +169,12 @@ final bodyBlogServiceProvider = Provider<BodyBlogService>((ref) {
     db: ref.read(localDbServiceProvider),
     ai: ref.read(journalAiServiceProvider),
   );
+});
+
+/// Conversational body-dialogue service.  Widgets can grab this via
+/// `ref.read(bodyDialogueServiceProvider)` to start a chat session.
+final bodyDialogueServiceProvider = Provider<BodyDialogueService>((ref) {
+  return BodyDialogueService(ai: ref.read(aiServiceProvider));
 });
 
 // ── Health permission reactive status ───────────────────────────────────────

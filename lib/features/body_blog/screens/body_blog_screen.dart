@@ -13,6 +13,7 @@ import '../../../core/models/body_blog_version.dart';
 import '../../../core/services/service_providers.dart';
 import '../../shared/widgets/app_header.dart';
 import '../../shared/widgets/health_permission_card.dart';
+import '../widgets/body_dialogue_sheet.dart';
 import '../widgets/insight_reflection_card.dart';
 import '../widgets/social_card.dart';
 
@@ -276,8 +277,31 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
             children: [
               AppHeader(
                 title: 'BodyPress',
-                primaryAction: _refreshing
-                    ? const Padding(
+                primaryAction: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ── Chat icon — opens body dialogue ──
+                    IconButton(
+                      onPressed: _entries.isNotEmpty
+                          ? () => showBodyDialogue(
+                              context,
+                              _entries[_currentPage],
+                            )
+                          : null,
+                      tooltip: 'Chat with your body',
+                      icon: Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 21,
+                        color: _entries.isNotEmpty
+                            ? (dark
+                                  ? const Color(0xFF0A84FF)
+                                  : const Color(0xFF007AFF))
+                            : (dark ? Colors.white12 : Colors.black12),
+                      ),
+                    ),
+                    // ── Refresh action ──
+                    if (_refreshing)
+                      const Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
                           width: 18,
@@ -285,7 +309,8 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
-                    : Material(
+                    else
+                      Material(
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: _refresh,
@@ -334,6 +359,8 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
                           ),
                         ),
                       ),
+                  ],
+                ),
               ),
               // Health permission banner — only visible when health access
               // is not granted on the current device.

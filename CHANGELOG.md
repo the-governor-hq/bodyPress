@@ -5,6 +5,38 @@ All notable changes to BodyPress Flutter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.17] - 2026-03-08
+
+### Added
+
+- **Ask Your Body — Voice/Text Dialogue**: Conversational AI chat where the user can ask their body questions ("Why am I so tired today?") and get answers grounded in real biometric data (HRV, sleep, AQI, heart rate, etc.)
+- `BodyDialogueService` with multi-turn session management — maintains conversation history and builds a rich system prompt from the day's `BodySnapshot` and journal text
+- `BodyDialogueSheet` — full chat bottom sheet UI with suggestion chips, message bubbles, typing indicator with animated bouncing dots, and keyboard-aware input bar
+- Chat icon (✦) in the AppHeader — opens the body dialogue for the currently viewed day's entry
+
+## [1.0.16] - 2026-03-08
+
+### Changed
+
+- Enhanced refresh journey overlay to show pipeline stages for returning users on app start (not only on manual refresh)
+
+## [1.0.15] - 2026-03-08
+
+### Added
+
+- Revamped Journal landing page with improved layout and visual hierarchy
+- `TEST_AI.md` documentation for BodyPress AI prompt benchmarking
+
+### Changed
+
+- AI journal generation now strips health-metric references when no health data is available, preventing hallucinated stats
+
+## [1.0.14] - 2026-03-08
+
+### Added
+
+- **In-App Updates**: Play Store in-app update service with flexible update flow integrated into app startup
+
 ## [1.0.13] - 2026-03-08
 
 ### Added

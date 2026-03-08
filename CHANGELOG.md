@@ -5,21 +5,26 @@ All notable changes to BodyPress Flutter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.11] - 2026-03-08
+
+### Improved
+
+- **Journal Refresh UX**: Replaced minimal spinner with an immersive Refresh Journey Overlay showing a live pipeline (Reading body → Saving snapshot → AI composing → Ready) with breathing animations, tone badge, rotating phrases, and elapsed timer
+
 ## [1.0.0] - 2026-02-26
 
 ### Added
+
 - Initial release of BodyPress Flutter
 - **Permission System**
   - Onboarding screen with permission requests
   - Location, Health, and Calendar permission management
   - Graceful handling of permission states
-  
 - **GPS Tracking**
   - Real-time location tracking
   - Background location support
   - High-accuracy positioning
   - Distance calculation utilities
-  
 - **Health Data Integration**
   - Cross-platform health data access (iOS HealthKit & Android Health Connect)
   - Daily step tracking
@@ -27,13 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Heart rate data access
   - Sleep tracking support
   - Workout data integration
-  
 - **Calendar Integration**
   - View today's events
   - Calendar permissions management
   - Support for multiple device calendars
   - Event creation and deletion
-  
 - **UI/UX**
   - Modern Material 3 design
   - Beautiful dark theme with vibrant accent colors
@@ -43,7 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Responsive card layouts
   - Pull-to-refresh functionality
   - Loading states and animations
-  
 - **Architecture**
   - Feature-first folder structure
   - Riverpod for state management
@@ -51,12 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clean service layer architecture
   - Separation of concerns
   - Reusable component structure
-  
 - **Platform Support**
   - Android 5.0+ (API 21+)
   - iOS 14.0+
   - Web (basic support)
-  
 - **Documentation**
   - Comprehensive README with setup instructions
   - Code documentation
@@ -64,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Troubleshooting section
 
 ### Technical Details
+
 - Flutter SDK: 3.9.2+
 - Dart SDK: 3.9.2+
 - Dependencies:
@@ -76,13 +77,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - google_fonts: ^6.2.1
 
 ### Platform Configurations
+
 - **Android**: Full permission manifest for location, health, and calendar
 - **iOS**: Complete Info.plist entries with usage descriptions
 - Pre-configured for Health Connect (Android 13+)
 - HealthKit setup instructions included
 
 ### Known Issues
+
 - None at initial release
 
 ### Future Roadmap
+
 See README.md for planned enhancements

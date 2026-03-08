@@ -7,6 +7,12 @@ import '../../../core/models/capture_entry.dart';
 import '../../../core/services/service_providers.dart';
 import '../../body_blog/widgets/weekly_self_portrait.dart';
 import '../../shared/widgets/app_header.dart';
+import '../models/pattern_analysis.dart';
+import '../widgets/co_occurrence_list.dart';
+import '../widgets/pattern_hints_card.dart';
+import '../widgets/rhythm_strip.dart';
+import '../widgets/section_card.dart';
+import '../widgets/theme_energy_insights.dart';
 
 // ── Data providers ──────────────────────────────────────────────────────────
 
@@ -37,96 +43,7 @@ List<CaptureEntry> _filterByInterval(
 }
 
 // ── Aggregated patterns ─────────────────────────────────────────────────────
-
-class _PatternSummary {
-  final int totalCaptures;
-  final int analyzedCaptures;
-  final List<MapEntry<String, int>> topThemes;
-  final List<MapEntry<String, int>> topTags;
-  final List<MapEntry<String, int>> topSignals;
-  final Map<String, int> energyBreakdown;
-  final List<_MomentSnapshot> recentMoments;
-
-  const _PatternSummary({
-    required this.totalCaptures,
-    required this.analyzedCaptures,
-    required this.topThemes,
-    required this.topTags,
-    required this.topSignals,
-    required this.energyBreakdown,
-    required this.recentMoments,
-  });
-}
-
-class _MomentSnapshot {
-  final DateTime timestamp;
-  final String summary;
-  final String energyLevel;
-  final List<String> tags;
-  final String? userMood;
-
-  const _MomentSnapshot({
-    required this.timestamp,
-    required this.summary,
-    required this.energyLevel,
-    required this.tags,
-    this.userMood,
-  });
-}
-
-_PatternSummary _buildSummary(List<CaptureEntry> captures) {
-  final withMeta = captures.where((c) => c.aiMetadata != null).toList();
-
-  final themeCount = <String, int>{};
-  final tagCount = <String, int>{};
-  final signalCount = <String, int>{};
-  final energyCount = <String, int>{'high': 0, 'medium': 0, 'low': 0};
-
-  for (final c in withMeta) {
-    final m = c.aiMetadata!;
-    for (final t in m.themes) {
-      themeCount[t] = (themeCount[t] ?? 0) + 1;
-    }
-    for (final t in m.tags) {
-      tagCount[t] = (tagCount[t] ?? 0) + 1;
-    }
-    for (final s in m.notableSignals) {
-      signalCount[s] = (signalCount[s] ?? 0) + 1;
-    }
-    final level = m.energyLevel.toLowerCase();
-    if (energyCount.containsKey(level)) {
-      energyCount[level] = energyCount[level]! + 1;
-    }
-  }
-
-  List<MapEntry<String, int>> top(Map<String, int> map, {int n = 12}) =>
-      (map.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
-          .take(n)
-          .toList();
-
-  final recentMoments = withMeta
-      .take(20)
-      .map(
-        (c) => _MomentSnapshot(
-          timestamp: c.timestamp,
-          summary: c.aiMetadata!.summary,
-          energyLevel: c.aiMetadata!.energyLevel,
-          tags: c.aiMetadata!.tags.take(3).toList(),
-          userMood: c.userMood,
-        ),
-      )
-      .toList();
-
-  return _PatternSummary(
-    totalCaptures: captures.length,
-    analyzedCaptures: withMeta.length,
-    topThemes: top(themeCount),
-    topTags: top(tagCount),
-    topSignals: top(signalCount, n: 8),
-    energyBreakdown: energyCount,
-    recentMoments: recentMoments,
-  );
-}
+// Model + builder live in pattern_analysis.dart
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 
@@ -204,7 +121,7 @@ class _PatternsScreenState extends ConsumerState<PatternsScreen> {
               return _EmptyState(theme: theme);
             }
             final filtered = _filterByInterval(captures, _interval);
-            final summary = _buildSummary(filtered);
+            final summary = buildPatternAnalysis(filtered);
             return _PatternBody(
               summary: summary,
               filtered: filtered,
@@ -228,7 +145,7 @@ class _PatternsScreenState extends ConsumerState<PatternsScreen> {
 // ── Body ────────────────────────────────────────────────────────────────────
 
 class _PatternBody extends StatelessWidget {
-  final _PatternSummary summary;
+  final PatternAnalysis summary;
   final List<CaptureEntry> filtered;
   final int totalCaptures;
   final ThemeData theme;
@@ -302,24 +219,42 @@ class _PatternBody extends StatelessWidget {
                     ),
                   ),
 
-                // ── Weekly Self-Portrait radar visualization ──
+                // ── 1. Weekly Self-Portrait ──────────────────────────
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: SectionCard(
+                    title: 'Weekly Self-Portrait',
+                    explanation:
+                        'A 4-axis radar of the last 7 days. Each axis '
+                        'represents a dimension of your body state:\n'
+                        '• Energy — AI-assessed from health signals '
+                        '(high → 0.9, medium → 0.55, low → 0.25)\n'
+                        '• Calm — inverse of stress level (1–10 scale)\n'
+                        '• Sleep — sleep quality score (1–10 scale)\n'
+                        '• Motion — activity category '
+                        '(active → 0.9, sedentary → 0.25)\n\n'
+                        'Older days fade; today is vivid. '
+                        'The composite bar = average of all four.',
+                    dataSource:
+                        'AI metadata · energyLevel · stressLevel · '
+                        'sleepQuality · activityCategory',
+                    animationIndex: 0,
                     child: WeeklySelfPortrait(captures: filtered),
                   ),
                 ),
 
                 if (summary.analyzedCaptures > 0) ...[
+                  // ── 2. Energy Distribution ─────────────────────────
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                      child: _sectionLabel('Energy Distribution', theme),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: SectionCard(
+                      title: 'Energy Distribution',
+                      explanation:
+                          'How many of your captures were tagged as '
+                          'high, medium, or low energy by the AI. '
+                          'Energy is derived from your step count, '
+                          'heart rate, sleep quality, and activity '
+                          'patterns at the time of capture.',
+                      dataSource: 'AI metadata · energyLevel',
+                      animationIndex: 1,
                       child: _EnergyBar(
                         breakdown: summary.energyBreakdown,
                         total: summary.analyzedCaptures,
@@ -328,38 +263,68 @@ class _PatternBody extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                  // ── 3. Theme–Energy Links (NEW) ────────────────────
+                  if (summary.themeEnergyMap.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: SectionCard(
+                        title: 'Theme–Energy Links',
+                        explanation:
+                            'Correlations between recurring themes and '
+                            'your energy level. If a theme appears ≥ 3 '
+                            'times and ≥ 60 % are at the same energy '
+                            'level, it surfaces here. These are '
+                            'actionable: lean into high-energy themes, '
+                            'investigate low-energy ones.',
+                        dataSource: 'Cross-reference: themes × energyLevel',
+                        animationIndex: 2,
+                        child: ThemeEnergyInsights(
+                          themeEnergyMap: summary.themeEnergyMap,
+                          theme: theme,
+                          dark: dark,
+                        ),
+                      ),
+                    ),
                 ],
 
-                if (summary.topThemes.isNotEmpty) ...[
+                // ── 4. Top Themes (with trends) ──────────────────────
+                if (summary.topThemes.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                      child: _sectionLabel('Top Themes', theme),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: SectionCard(
+                      title: 'Top Themes',
+                      explanation:
+                          'Recurring themes identified by the AI across '
+                          'your captures. The count badge shows '
+                          'frequency. Trend arrows (↑ emerging, '
+                          '↓ fading) compare the newer half of your '
+                          'data against the older half. The coloured '
+                          'dot shows the dominant energy level when '
+                          'this theme appears.',
+                      dataSource: 'AI metadata · themes[]',
+                      animationIndex: 3,
                       child: _FrequencyChips(
                         entries: summary.topThemes,
                         color: theme.colorScheme.primary,
                         theme: theme,
                         dark: dark,
+                        trends: summary.themeTrends,
+                        themeEnergyMap: summary.themeEnergyMap,
                       ),
                     ),
                   ),
-                ],
 
-                if (summary.topTags.isNotEmpty) ...[
+                // ── 5. Keywords (with trends) ────────────────────────
+                if (summary.topTags.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                      child: _sectionLabel('Keywords', theme),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: SectionCard(
+                      title: 'Keywords',
+                      explanation:
+                          'Concise keyword tags extracted from each '
+                          'capture for search and grouping. Higher '
+                          'counts mean a keyword is a recurring part '
+                          'of your body story.',
+                      dataSource: 'AI metadata · tags[]',
+                      animationIndex: 4,
                       child: _FrequencyChips(
                         entries: summary.topTags,
                         color: Colors.teal,
@@ -368,18 +333,82 @@ class _PatternBody extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
 
-                if (summary.topSignals.isNotEmpty) ...[
+                // ── 6. Co-Occurring Themes (NEW) ─────────────────────
+                if (summary.coOccurrences.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                      child: _sectionLabel('Recurring Signals', theme),
+                    child: SectionCard(
+                      title: 'Co-Occurring Themes',
+                      explanation:
+                          'Theme pairs that appear together in the '
+                          'same capture at least twice. Clusters '
+                          'reveal behavioural links — e.g. "stress + '
+                          'poor sleep" suggests one drives the other.',
+                      dataSource: 'Pairwise co-occurrence within each capture',
+                      animationIndex: 5,
+                      child: CoOccurrenceList(
+                        coOccurrences: summary.coOccurrences,
+                        theme: theme,
+                        dark: dark,
+                      ),
                     ),
                   ),
+
+                // ── 7. Your Rhythms (NEW) ────────────────────────────
+                if (summary.timeOfDayDistribution.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: SectionCard(
+                      title: 'Your Rhythms',
+                      explanation:
+                          'Distribution of your captures across the '
+                          'day. Circadian science shows that body '
+                          'metrics like heart rate, cortisol, and '
+                          'energy follow a daily cycle. Seeing when '
+                          'you are most captured helps identify your '
+                          'peak and recovery windows.',
+                      dataSource: 'AI metadata · timeOfDay',
+                      animationIndex: 6,
+                      child: RhythmStrip(
+                        timeOfDayDistribution: summary.timeOfDayDistribution,
+                        theme: theme,
+                        dark: dark,
+                      ),
+                    ),
+                  ),
+
+                // ── 8. AI Pattern Insights (NEW) ─────────────────────
+                if (summary.aggregatedPatternHints.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: SectionCard(
+                      title: 'AI Pattern Insights',
+                      explanation:
+                          'Correlations the AI discovered during '
+                          'analysis — e.g. "consistent-morning-routine" '
+                          'or "weather-affects-mood". These are '
+                          'hypothesis-level observations that gain '
+                          'confidence as more captures confirm them.',
+                      dataSource: 'AI metadata · patternHints[]',
+                      animationIndex: 7,
+                      child: PatternHintsCard(
+                        hints: summary.aggregatedPatternHints,
+                        theme: theme,
+                        dark: dark,
+                      ),
+                    ),
+                  ),
+
+                // ── 9. Recurring Signals ─────────────────────────────
+                if (summary.topSignals.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: SectionCard(
+                      title: 'Recurring Signals',
+                      explanation:
+                          'Notable data signals the AI flagged — like '
+                          '"elevated heart rate" or "high UV". These '
+                          'are individual observations. When one '
+                          'recurs many times, it deserves attention.',
+                      dataSource: 'AI metadata · notableSignals[]',
+                      animationIndex: 8,
                       child: _SignalList(
                         signals: summary.topSignals,
                         theme: theme,
@@ -387,13 +416,20 @@ class _PatternBody extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
 
+                // ── 10. Recent Moments ───────────────────────────────
                 if (summary.recentMoments.isNotEmpty) ...[
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                      child: _sectionLabel('Recent Moments', theme),
+                    child: SectionCard(
+                      title: 'Recent Moments',
+                      explanation:
+                          'Your latest capture summaries — the raw '
+                          'building blocks of all the patterns above. '
+                          'Each moment shows the AI summary, energy '
+                          'level, mood, and tags at that instant.',
+                      dataSource: 'AI metadata · summary',
+                      animationIndex: 9,
+                      child: const SizedBox.shrink(),
                     ),
                   ),
                   SliverList(
@@ -611,16 +647,6 @@ class _IntervalPicker extends StatelessWidget {
   }
 }
 
-Widget _sectionLabel(String label, ThemeData theme) => Text(
-  label.toUpperCase(),
-  style: GoogleFonts.inter(
-    fontSize: 11,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 1.2,
-    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-  ),
-);
-
 class _EnergyBar extends StatelessWidget {
   final Map<String, int> breakdown;
   final int total;
@@ -749,12 +775,34 @@ class _FrequencyChips extends StatelessWidget {
   final ThemeData theme;
   final bool dark;
 
+  /// Optional trend data per entry key: −1..+1 (fading → emerging).
+  final Map<String, double>? trends;
+
+  /// Optional theme-to-energy map for showing dominant-energy dot.
+  final Map<String, Map<String, int>>? themeEnergyMap;
+
   const _FrequencyChips({
     required this.entries,
     required this.color,
     required this.theme,
     required this.dark,
+    this.trends,
+    this.themeEnergyMap,
   });
+
+  /// Dominant energy colour for a given theme.
+  Color? _energyDot(String key) {
+    final counts = themeEnergyMap?[key];
+    if (counts == null) return null;
+    final h = counts['high'] ?? 0;
+    final m = counts['medium'] ?? 0;
+    final l = counts['low'] ?? 0;
+    final total = h + m + l;
+    if (total < 2) return null;
+    if (h >= m && h >= l) return const Color(0xFF4CAF50);
+    if (l >= m && l >= h) return const Color(0xFF2196F3);
+    return const Color(0xFFFF9800);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -765,6 +813,9 @@ class _FrequencyChips extends StatelessWidget {
       runSpacing: 8,
       children: entries.map((e) {
         final intensity = (e.value / maxCount).clamp(0.15, 1.0);
+        final trend = trends?[e.key];
+        final dotColor = _energyDot(e.key);
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -777,6 +828,18 @@ class _FrequencyChips extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Dominant-energy dot
+              if (dotColor != null) ...[
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+              ],
               Text(
                 e.key,
                 style: GoogleFonts.inter(
@@ -785,6 +848,19 @@ class _FrequencyChips extends StatelessWidget {
                   color: color.withValues(alpha: dark ? 0.9 : 0.85),
                 ),
               ),
+              // Trend arrow
+              if (trend != null && trend.abs() > 0.15) ...[
+                const SizedBox(width: 3),
+                Icon(
+                  trend > 0
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_down_rounded,
+                  size: 13,
+                  color: trend > 0
+                      ? const Color(0xFF4CAF50).withValues(alpha: 0.8)
+                      : const Color(0xFFE57373).withValues(alpha: 0.8),
+                ),
+              ],
               const SizedBox(width: 5),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -891,7 +967,7 @@ class _SignalList extends StatelessWidget {
 }
 
 class _MomentCard extends StatelessWidget {
-  final _MomentSnapshot moment;
+  final MomentSnapshot moment;
   final ThemeData theme;
   final bool dark;
 

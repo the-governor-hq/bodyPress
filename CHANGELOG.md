@@ -5,6 +5,15 @@ All notable changes to BodyPress Flutter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.13] - 2026-03-08
+
+### Added
+
+- **Your Body Story**: AI-generated narrative at the top of the Patterns page that synthesises all pattern data (themes, energy, correlations, rhythms, signals, AI hints) into a warm 3–5 sentence summary spoken "as the body" — giving users an instant, human-readable overview of their patterns
+- `PatternNarrativeService` — feeds full `PatternAnalysis` into the AI with a carefully tuned prompt (temperature 0.75, max 300 tokens)
+- `PatternNarrativeCard` widget with shimmer loading state and accent-tinted presentation
+- Narrative auto-regenerates when the interval filter changes or new captures are analysed
+
 ## [1.0.12] - 2026-03-08
 
 ### Added

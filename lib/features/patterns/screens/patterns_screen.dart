@@ -8,8 +8,10 @@ import '../../../core/services/service_providers.dart';
 import '../../body_blog/widgets/weekly_self_portrait.dart';
 import '../../shared/widgets/app_header.dart';
 import '../models/pattern_analysis.dart';
+import '../services/pattern_narrative_service.dart';
 import '../widgets/co_occurrence_list.dart';
 import '../widgets/pattern_hints_card.dart';
+import '../widgets/pattern_narrative_card.dart';
 import '../widgets/rhythm_strip.dart';
 import '../widgets/section_card.dart';
 import '../widgets/theme_energy_insights.dart';
@@ -71,6 +73,12 @@ class _PatternsScreenState extends ConsumerState<PatternsScreen> {
   bool get _isAnalyzing =>
       _analyzingTotal > 0 && _analyzingDone < _analyzingTotal;
 
+  // ── Narrative ───────────────────────────────────────────────────────────
+  String? _narrative;
+  bool _narrativeLoading = false;
+  /// Track which analysis hash we last requested narrative for.
+  int _lastNarrativeHash = 0;
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +130,10 @@ class _PatternsScreenState extends ConsumerState<PatternsScreen> {
             }
             final filtered = _filterByInterval(captures, _interval);
             final summary = buildPatternAnalysis(filtered);
+
+            // Trigger narrative generation when data changes
+            _maybeGenerateNarrative(summary);
+
             return _PatternBody(
               summary: summary,
               filtered: filtered,
@@ -133,12 +145,44 @@ class _PatternsScreenState extends ConsumerState<PatternsScreen> {
               analyzingTotal: _analyzingTotal,
               justFinished: _justFinished,
               selectedInterval: _interval,
-              onIntervalChanged: (v) => setState(() => _interval = v),
+              onIntervalChanged: (v) {
+                setState(() {
+                  _interval = v;
+                  // Reset narrative when interval changes
+                  _narrative = null;
+                  _lastNarrativeHash = 0;
+                });
+              },
+              narrative: _narrative,
+              narrativeLoading: _narrativeLoading,
             );
           },
         ),
       ),
     );
+  }
+
+  /// Fire-and-forget narrative generation. Only re-fires when analysis changes.
+  void _maybeGenerateNarrative(PatternAnalysis analysis) {
+    final hash = Object.hash(
+      analysis.analyzedCaptures,
+      analysis.topThemes.length,
+      _interval,
+    );
+    if (hash == _lastNarrativeHash) return;
+    _lastNarrativeHash = hash;
+
+    if (analysis.analyzedCaptures < 2) return;
+
+    setState(() => _narrativeLoading = true);
+    final svc = PatternNarrativeService(ref.read(aiServiceProvider));
+    svc.generate(analysis).then((result) {
+      if (!mounted) return;
+      setState(() {
+        _narrative = result;
+        _narrativeLoading = false;
+      });
+    });
   }
 }
 
@@ -156,6 +200,8 @@ class _PatternBody extends StatelessWidget {
   final bool justFinished;
   final _PatternInterval selectedInterval;
   final ValueChanged<_PatternInterval> onIntervalChanged;
+  final String? narrative;
+  final bool narrativeLoading;
 
   const _PatternBody({
     required this.summary,
@@ -169,6 +215,8 @@ class _PatternBody extends StatelessWidget {
     required this.justFinished,
     required this.selectedInterval,
     required this.onIntervalChanged,
+    required this.narrative,
+    required this.narrativeLoading,
   });
 
   @override
@@ -218,6 +266,17 @@ class _PatternBody extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                // ── 0. Body Story (AI narrative) ────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: PatternNarrativeCard(
+                      narrative: narrative,
+                      isLoading: narrativeLoading,
+                    ),
+                  ),
+                ),
 
                 // ── 1. Weekly Self-Portrait ──────────────────────────
                 SliverToBoxAdapter(

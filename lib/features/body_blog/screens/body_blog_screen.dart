@@ -225,7 +225,7 @@ class _BodyBlogScreenState extends ConsumerState<BodyBlogScreen> {
                                 _ShimmerAiIcon(size: 18, dark: dark),
                                 const SizedBox(width: 8),
                                 Text(
-                                  "What's up?",
+                                  "Refresh",
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,

@@ -5,6 +5,17 @@ All notable changes to BodyPress Flutter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.20] - 2026-03-09
+
+### Added
+
+- **Real-time Spectral Analysis (BCI)**: Pure-Dart Cooley-Tukey radix-2 FFT engine (`FftEngine`) with Hanning window, PSD normalisation, and EEG frequency band extraction (Delta δ 0.5–4 Hz, Theta θ 4–8, Alpha α 8–13, Beta β 13–30, Gamma γ 30–100)
+- **Bioluminescent Spectrum widget** (`SpectralAnalysisChart`) — three views: live frequency spectrum with triple-pass glow rendering, scrolling waterfall spectrogram with 7-stop bioluminescent gradient heatmap, and animated EEG band power meters
+- One-tap toggle between time-domain waveforms and spectral analysis in the live signal screen AppBar (works in both real BLE streaming and demo mode)
+- `AnimatedSwitcher` crossfade between `LiveSignalChart` and `SpectralAnalysisChart` with shared signal stream
+- Dominant frequency badge, pulsing aurora icon, per-channel selector, smoothed PSD bars (EMA α=0.3), 75% FFT overlap for smooth updates
+- Comprehensive FFT test suite (12 tests): sinusoid peak detection, band power extraction, Parseval energy conservation, white noise flatness, dB normalisation, frequency axis validation
+
 ## [1.0.18] - 2026-03-08
 
 ### Added

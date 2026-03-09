@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/capture_entry.dart';
+import '../models/nutrition_log.dart';
 import 'ambient_scan_service.dart';
 import 'ble_heart_rate_service.dart';
 import 'calendar_service.dart';
@@ -67,6 +68,7 @@ class CaptureService {
   /// - [bleHrSession]: Full BLE HR session with samples, RR intervals, and HRV.
   ///   When provided, overrides the health-service HR reading with the session
   ///   average BPM and attaches the full recording to the capture.
+  /// - [nutritionData]: Scanned food product data from Open Food Facts.
   Future<CaptureEntry> createCapture({
     bool includeHealth = true,
     bool includeEnvironment = true,
@@ -78,6 +80,7 @@ class CaptureService {
     CaptureSource source = CaptureSource.manual,
     CaptureTrigger? trigger,
     BleHrSession? bleHrSession,
+    List<NutritionLog> nutritionData = const [],
   }) async {
     final stopwatch = Stopwatch()..start();
     final timestamp = DateTime.now();
@@ -144,10 +147,16 @@ class CaptureService {
       executionDuration: stopwatch.elapsed,
       errors: errors,
       bleHrSession: bleHrSession,
+      nutritionData: nutritionData,
     );
 
     // Save to database
     await _dbService.saveCapture(capture);
+
+    // Persist individual nutrition logs to the longitudinal table.
+    for (final log in nutritionData) {
+      await _dbService.saveNutritionLog(log, captureId: capture.id);
+    }
 
     // Kick off background AI metadata extraction — fire and forget.
     // Errors are caught inside processCapture so they never propagate here.

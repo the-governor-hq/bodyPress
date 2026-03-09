@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../services/ble_heart_rate_service.dart';
 import 'capture_ai_metadata.dart';
+import 'nutrition_log.dart';
 
 /// Where a capture originated.
 enum CaptureSource {
@@ -93,6 +94,10 @@ class CaptureEntry {
   /// Null when BLE was not connected at capture time.
   final BleHrSession? bleHrSession;
 
+  /// Food / snack barcode scans attached to this capture.
+  /// Empty when the user did not scan any products.
+  final List<NutritionLog> nutritionData;
+
   const CaptureEntry({
     required this.id,
     required this.timestamp,
@@ -113,6 +118,7 @@ class CaptureEntry {
     this.errors = const [],
     this.batteryLevel,
     this.bleHrSession,
+    this.nutritionData = const [],
   });
 
   CaptureEntry copyWith({
@@ -147,6 +153,7 @@ class CaptureEntry {
     bool clearBatteryLevel = false,
     BleHrSession? bleHrSession,
     bool clearBleHrSession = false,
+    List<NutritionLog>? nutritionData,
   }) {
     return CaptureEntry(
       id: id ?? this.id,
@@ -178,6 +185,7 @@ class CaptureEntry {
       bleHrSession: clearBleHrSession
           ? null
           : (bleHrSession ?? this.bleHrSession),
+      nutritionData: nutritionData ?? this.nutritionData,
     );
   }
 
@@ -205,6 +213,9 @@ class CaptureEntry {
     'errors': jsonEncode(errors),
     'battery_level': batteryLevel,
     'ble_hr_session': bleHrSession?.encode(),
+    'nutrition_data': nutritionData.isNotEmpty
+        ? NutritionLog.encodeList(nutritionData)
+        : null,
   };
 
   factory CaptureEntry.fromJson(Map<String, dynamic> json) {
@@ -275,6 +286,7 @@ class CaptureEntry {
           : const [],
       batteryLevel: json['battery_level'] as int?,
       bleHrSession: BleHrSession.decode(json['ble_hr_session'] as String?),
+      nutritionData: NutritionLog.decodeList(json['nutrition_data'] as String?),
     );
   }
 }

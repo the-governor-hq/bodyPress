@@ -8,8 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/models/capture_entry.dart';
+import '../../../core/models/nutrition_log.dart';
 import '../../../core/services/ble_heart_rate_service.dart';
 import '../../../core/services/service_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -29,6 +31,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   late final _captureService = ref.read(captureServiceProvider);
   late final _metadataService = ref.read(captureMetadataServiceProvider);
   late final _bleService = ref.read(bleHeartRateServiceProvider);
+  late final _nutritionService = ref.read(nutritionServiceProvider);
   final TextEditingController _noteController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -55,6 +58,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   // Continuous recording buffers (cleared after each capture).
   final List<BleHrSample> _hrSamples = [];
   final List<double> _allRrMs = [];
+
+  // Nutrition / barcode scanner state
+  final List<NutritionLog> _scannedProducts = [];
 
   List<CaptureEntry>? _recentCaptures;
   int _unprocessedCount = 0;
@@ -239,6 +245,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         includeCalendar: _includeCalendar,
         userNote: _userNote,
         userMood: _userMood,
+        nutritionData: List.unmodifiable(_scannedProducts),
         bleHrSession:
             _bleState == BleConnectionState.streaming && _hrSamples.isNotEmpty
             ? BleHrSession(
@@ -259,6 +266,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         // Reset recording buffers so the next capture starts fresh.
         _hrSamples.clear();
         _allRrMs.clear();
+        _scannedProducts.clear();
         setState(() => _noteExpanded = false);
         await _loadRecentCaptures();
       }
@@ -435,6 +443,201 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   }
 
   // ─────────────────────────────────────────────────────────────────────
+  // NUTRITION / BARCODE SCANNER
+  // ─────────────────────────────────────────────────────────────────────
+
+  void _onScanFoodTap() {
+    HapticFeedback.selectionClick();
+    _showBarcodeScannerSheet();
+  }
+
+  void _showBarcodeScannerSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _BarcodeScannerSheet(
+        onProductScanned: (log) {
+          Navigator.pop(ctx);
+          setState(() => _scannedProducts.add(log));
+          HapticFeedback.mediumImpact();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added: ${log.displayLabel}'),
+              backgroundColor: Colors.teal,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        },
+        nutritionService: _nutritionService,
+      ),
+    );
+  }
+
+  Widget _buildNutritionCard(ThemeData theme, bool dark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: dark ? AppTheme.tidePool : const Color(0xFFEEEEF2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.teal.withValues(alpha: 0.25),
+          width: 1.5,
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.restaurant_rounded, size: 18, color: Colors.teal),
+              const SizedBox(width: 8),
+              Text(
+                'Scanned Food',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.teal,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: _onScanFoodTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 14, color: Colors.teal),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Scan more',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.teal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._scannedProducts.map(
+            (log) => _buildScannedProductTile(theme, dark, log),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScannedProductTile(
+    ThemeData theme,
+    bool dark,
+    NutritionLog log,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          // Nutri-Score badge
+          if (log.nutriScore != null)
+            Container(
+              width: 30,
+              height: 30,
+              margin: const EdgeInsets.only(right: 10),
+              decoration: BoxDecoration(
+                color: _nutriScoreColor(log.nutriScore!),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  log.nutriScore!.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            )
+          else
+            const SizedBox(width: 40),
+          // Product info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  log.displayLabel,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: dark ? Colors.white : Colors.black87,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (log.per100g != null)
+                  Text(
+                    log.per100g!.macroLine,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: dark ? Colors.white54 : Colors.black45,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          // Remove button
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => _scannedProducts.remove(log));
+            },
+            child: Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: dark ? Colors.white38 : Colors.black26,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _nutriScoreColor(String grade) {
+    switch (grade.toLowerCase()) {
+      case 'a':
+        return const Color(0xFF038141);
+      case 'b':
+        return const Color(0xFF85BB2F);
+      case 'c':
+        return const Color(0xFFFECB02);
+      case 'd':
+        return const Color(0xFFE63E11);
+      case 'e':
+        return const Color(0xFFAF1D1D);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
   // BUILD
   // ─────────────────────────────────────────────────────────────────────
 
@@ -489,6 +692,15 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                           child: _buildSensorChips(theme, dark),
                         ),
                       ),
+
+                      // Scanned food products card
+                      if (_scannedProducts.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                            child: _buildNutritionCard(theme, dark),
+                          ),
+                        ),
 
                       // Mood + note
                       SliverToBoxAdapter(
@@ -709,6 +921,18 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
       padding: const EdgeInsets.only(right: 20),
       child: Row(
         children: [
+          _sensorChip(
+            theme,
+            dark,
+            Icons.qr_code_scanner_rounded,
+            _scannedProducts.isNotEmpty
+                ? '${_scannedProducts.length} scanned'
+                : 'Scan Food',
+            _scannedProducts.isNotEmpty,
+            _onScanFoodTap,
+            Colors.teal,
+          ),
+          const SizedBox(width: 8),
           _sensorChip(
             theme,
             dark,
@@ -2247,5 +2471,474 @@ class _BleDevicePickerSheetState extends State<_BleDevicePickerSheet> {
         ],
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Barcode Scanner Bottom Sheet
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _BarcodeScannerSheet extends StatefulWidget {
+  final void Function(NutritionLog product) onProductScanned;
+  final dynamic nutritionService; // NutritionService
+
+  const _BarcodeScannerSheet({
+    required this.onProductScanned,
+    required this.nutritionService,
+  });
+
+  @override
+  State<_BarcodeScannerSheet> createState() => _BarcodeScannerSheetState();
+}
+
+class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
+  final MobileScannerController _scannerController = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    facing: CameraFacing.back,
+  );
+  bool _isLookingUp = false;
+  String? _lastScannedCode;
+  NutritionLog? _foundProduct;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onBarcodeDetected(BarcodeCapture capture) async {
+    if (_isLookingUp) return;
+    final code = capture.barcodes.firstOrNull?.rawValue;
+    if (code == null || code == _lastScannedCode) return;
+
+    // Pause the camera while we look up the product — this stops the
+    // ImageReader from buffering frames we'll never consume.
+    unawaited(_scannerController.stop());
+
+    setState(() {
+      _lastScannedCode = code;
+      _isLookingUp = true;
+      _errorMessage = null;
+      _foundProduct = null;
+    });
+
+    HapticFeedback.mediumImpact();
+
+    final result = await widget.nutritionService.lookupBarcode(code);
+    if (!mounted) return;
+
+    if (result != null) {
+      setState(() {
+        _foundProduct = result;
+        _isLookingUp = false;
+      });
+    } else {
+      setState(() {
+        _errorMessage = 'Product not found for barcode: $code';
+        _isLookingUp = false;
+      });
+      // Restart camera so user can scan another barcode.
+      await _scannerController.start();
+      // Allow re-scanning the same barcode after a brief delay.
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _lastScannedCode = null);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final height = MediaQuery.sizeOf(context).height * 0.75;
+
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: dark ? AppTheme.midnight : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: (dark ? Colors.white : Colors.black).withValues(
+                alpha: 0.2,
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.qr_code_scanner_rounded,
+                  size: 22,
+                  color: Colors.teal,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Scan Food Barcode',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: dark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: dark ? Colors.white54 : Colors.black38,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Camera viewfinder
+          Expanded(
+            child: _foundProduct != null
+                ? _buildProductResult(theme, dark)
+                : _buildScannerView(theme, dark),
+          ),
+          SizedBox(height: MediaQuery.paddingOf(context).bottom + 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScannerView(ThemeData theme, bool dark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                children: [
+                  MobileScanner(
+                    controller: _scannerController,
+                    onDetect: _onBarcodeDetected,
+                  ),
+                  // Scanning overlay
+                  Center(
+                    child: Container(
+                      width: 260,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.teal.withValues(alpha: 0.7),
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  // Status bar
+                  if (_isLookingUp || _errorMessage != null)
+                    Positioned(
+                      bottom: 20,
+                      left: 20,
+                      right: 20,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              (_isLookingUp ? Colors.teal : Colors.red.shade700)
+                                  .withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_isLookingUp)
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Colors.white,
+                                  ),
+                                ),
+                              ),
+                            if (_isLookingUp) const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _isLookingUp
+                                    ? 'Looking up $_lastScannedCode…'
+                                    : _errorMessage ?? '',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Point camera at a food barcode',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: dark ? Colors.white38 : Colors.black38,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductResult(ThemeData theme, bool dark) {
+    final p = _foundProduct!;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Product header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: dark ? AppTheme.tidePool : const Color(0xFFEEEEF2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.teal.withValues(alpha: 0.2),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (p.nutriScore != null)
+                      Container(
+                        width: 36,
+                        height: 36,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          color: _nutriScoreColor(p.nutriScore!),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Center(
+                          child: Text(
+                            p.nutriScore!.toUpperCase(),
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p.productName,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: dark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          if (p.brand != null)
+                            Text(
+                              p.brand!,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: dark ? Colors.white54 : Colors.black45,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Macro grid
+                if (p.per100g != null) ...[
+                  Text(
+                    'Per 100 g',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.teal,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildMacroGrid(p.per100g!, dark),
+                ],
+                if (p.perServing != null && p.servingSize != null) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    'Per serving (${p.servingSize})',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.teal,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildMacroGrid(p.perServing!, dark),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    widget.onProductScanned(p);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.teal,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Add to Capture',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _foundProduct = null;
+                    _lastScannedCode = null;
+                    _errorMessage = null;
+                  });
+                  _scannerController.start();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 20,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (dark ? Colors.white : Colors.black).withValues(
+                      alpha: 0.08,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    'Scan Again',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: dark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMacroGrid(NutritionFacts facts, bool dark) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (facts.energyKcal != null)
+          _macroChip('⚡', '${facts.energyKcal!.toStringAsFixed(0)} kcal', dark),
+        if (facts.proteins != null)
+          _macroChip(
+            '💪',
+            '${facts.proteins!.toStringAsFixed(1)}g protein',
+            dark,
+          ),
+        if (facts.carbohydrates != null)
+          _macroChip(
+            '🍞',
+            '${facts.carbohydrates!.toStringAsFixed(1)}g carbs',
+            dark,
+          ),
+        if (facts.sugars != null)
+          _macroChip('🍬', '${facts.sugars!.toStringAsFixed(1)}g sugar', dark),
+        if (facts.fat != null)
+          _macroChip('🧈', '${facts.fat!.toStringAsFixed(1)}g fat', dark),
+        if (facts.fiber != null)
+          _macroChip('🌾', '${facts.fiber!.toStringAsFixed(1)}g fiber', dark),
+        if (facts.salt != null)
+          _macroChip('🧂', '${facts.salt!.toStringAsFixed(2)}g salt', dark),
+      ],
+    );
+  }
+
+  Widget _macroChip(String emoji, String label, bool dark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: (dark ? Colors.white : Colors.black).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$emoji $label',
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: dark ? Colors.white70 : Colors.black54,
+        ),
+      ),
+    );
+  }
+
+  Color _nutriScoreColor(String grade) {
+    switch (grade.toLowerCase()) {
+      case 'a':
+        return const Color(0xFF038141);
+      case 'b':
+        return const Color(0xFF85BB2F);
+      case 'c':
+        return const Color(0xFFFECB02);
+      case 'd':
+        return const Color(0xFFE63E11);
+      case 'e':
+        return const Color(0xFFAF1D1D);
+      default:
+        return Colors.grey;
+    }
   }
 }

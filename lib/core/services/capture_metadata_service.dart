@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models/ai_models.dart';
 import '../models/capture_ai_metadata.dart';
 import '../models/capture_entry.dart';
+// NutritionLog type used implicitly via CaptureEntry.nutritionData
 import 'ai_service.dart';
 import 'ble_heart_rate_service.dart';
 import 'local_db_service.dart';
@@ -224,6 +225,12 @@ class CaptureMetadataService {
     buf.writeln('  - "Outdoor activity on weekends boosts mood"');
     buf.writeln('  - "High stress on Mondays correlates with work location"');
     buf.writeln('  - "Weather impacts energy levels"');
+    buf.writeln(
+      '  - "Late-night sugar intake correlates with morning HRV dip"',
+    );
+    buf.writeln(
+      '  - "High-calorie snacks before bed predict sluggishness next morning"',
+    );
     buf.writeln();
 
     // ── Temporal Context ──────────────────────────────────────────────────
@@ -398,6 +405,45 @@ class CaptureMetadataService {
       buf.writeln();
     }
 
+    // ── Nutrition / Food Scans ──────────────────────────────────────────────
+    if (c.nutritionData.isNotEmpty) {
+      buf.writeln('═══ NUTRITION / FOOD SCANS ═══');
+      buf.writeln(
+        'The user scanned ${c.nutritionData.length} food product(s) with this capture.',
+      );
+      buf.writeln(
+        'Use this for nutrition-health CORRELATION: e.g. sugar intake → next-day HRV dip, late-night snacking → morning sluggishness.',
+      );
+      buf.writeln();
+      for (final food in c.nutritionData) {
+        buf.writeln('• ${food.displayLabel}');
+        if (food.nutriScore != null) {
+          buf.writeln('  Nutri-Score: ${food.nutriScore!.toUpperCase()}');
+        }
+        if (food.novaGroup != null) {
+          final desc = food.novaGroup == 4
+              ? '(ultra-processed)'
+              : food.novaGroup == 3
+              ? '(processed)'
+              : food.novaGroup == 2
+              ? '(processed culinary)'
+              : '(unprocessed)';
+          buf.writeln('  NOVA group: ${food.novaGroup} $desc');
+        }
+        final facts = food.per100g;
+        if (facts != null) {
+          buf.writeln('  Per 100g: ${facts.macroLine}');
+        }
+        final servFacts = food.perServing;
+        if (servFacts != null && food.servingSize != null) {
+          buf.writeln(
+            '  Per serving (${food.servingSize}): ${servFacts.macroLine}',
+          );
+        }
+      }
+      buf.writeln();
+    }
+
     // ── Capture Metadata ──────────────────────────────────────────────────
     buf.writeln('═══ CAPTURE INFO ═══');
     buf.writeln('• Source  : ${c.source.name}');
@@ -428,9 +474,10 @@ class CaptureMetadataService {
   "social_context": "<alone|with-others|unknown>",
   "body_signal": "<primary body state: well-rested|fatigued|energized|recovering|stressed|calm>",
   "environment_score": <1-10 based on AQI, UV, weather>,
-  "pattern_hints": ["<2-3 correlation hypotheses like: post-workout-energy, weekday-stress, weather-mood-link>"],
+  "pattern_hints": ["<2-3 correlation hypotheses like: post-workout-energy, weekday-stress, weather-mood-link, late-night-sugar-hrv-dip>"],
   "hrv_context": "<null, or a brief interpretation of the HRV/HR data: e.g. relaxed-autonomic-tone, pre-exertion-elevated, post-workout-recovery>",
-  "hr_arc": "<null, or one sentence describing the BPM story: trend, notable spikes, what it may suggest>"
+  "hr_arc": "<null, or one sentence describing the BPM story: trend, notable spikes, what it may suggest>",
+  "nutrition_context": "<null, or a brief analysis of the scanned food: quality, sugar load, ultra-processing level, and predicted next-day impact on HRV/energy>"
 }''');
 
     return buf.toString();

@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import '../models/body_blog_entry.dart';
 import '../models/body_blog_version.dart';
 import '../models/capture_entry.dart';
+import '../models/nutrition_log.dart';
 
 /// Snapshot of database metadata for the debug panel.
 class DbInfo {
@@ -35,7 +38,8 @@ class LocalDbService {
   static const _tableSettings = 'settings';
   static const _tableCaptures = 'captures';
   static const _tableVersions = 'body_blog_versions';
-  static const _schemaVersion = 9;
+  static const _tableNutritionLogs = 'nutrition_logs';
+  static const _schemaVersion = 10;
 
   Database? _db;
 
@@ -101,7 +105,8 @@ class LocalDbService {
         errors           TEXT    NOT NULL DEFAULT '[]',
         battery_level    INTEGER,
         ai_metadata      TEXT,
-        ble_hr_session   TEXT
+        ble_hr_session   TEXT,
+        nutrition_data   TEXT
       )
     ''');
     await db.execute('''
@@ -127,6 +132,29 @@ class LocalDbService {
     ''');
     await db.execute('''
       CREATE INDEX idx_versions_date ON $_tableVersions(date DESC)
+    ''');
+    await db.execute('''
+      CREATE TABLE $_tableNutritionLogs (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        capture_id   TEXT,
+        barcode      TEXT    NOT NULL,
+        product_name TEXT    NOT NULL,
+        brand        TEXT,
+        nutri_score  TEXT,
+        nova_group   INTEGER,
+        per_100g     TEXT,
+        serving_size TEXT,
+        per_serving  TEXT,
+        image_url    TEXT,
+        scanned_at   TEXT    NOT NULL,
+        quantity_note TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_nutrition_scanned ON $_tableNutritionLogs(scanned_at DESC)
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_nutrition_capture ON $_tableNutritionLogs(capture_id)
     ''');
   }
 
@@ -250,6 +278,41 @@ class LocalDbService {
       } catch (e) {
         if (!e.toString().toLowerCase().contains('duplicate column')) rethrow;
       }
+    }
+    if (oldVersion < 10) {
+      // v9 → v10: add nutrition_data column to captures + nutrition_logs table
+      try {
+        await db.execute(
+          'ALTER TABLE $_tableCaptures ADD COLUMN nutrition_data TEXT',
+        );
+      } catch (e) {
+        if (!e.toString().toLowerCase().contains('duplicate column')) rethrow;
+      }
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $_tableNutritionLogs (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          capture_id   TEXT,
+          barcode      TEXT    NOT NULL,
+          product_name TEXT    NOT NULL,
+          brand        TEXT,
+          nutri_score  TEXT,
+          nova_group   INTEGER,
+          per_100g     TEXT,
+          serving_size TEXT,
+          per_serving  TEXT,
+          image_url    TEXT,
+          scanned_at   TEXT    NOT NULL,
+          quantity_note TEXT
+        )
+      ''');
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_nutrition_scanned
+        ON $_tableNutritionLogs(scanned_at DESC)
+      ''');
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_nutrition_capture
+        ON $_tableNutritionLogs(capture_id)
+      ''');
     }
   }
 
@@ -648,5 +711,76 @@ class LocalDbService {
       );
     }
     await batch.commit(noResult: true);
+  }
+
+  // ── nutrition logs ──────────────────────────────────────────────────────────────
+
+  Future<void> saveNutritionLog(NutritionLog log, {String? captureId}) async {
+    final db = await _database;
+    await db.insert(_tableNutritionLogs, {
+      'capture_id': captureId,
+      'barcode': log.barcode,
+      'product_name': log.productName,
+      'brand': log.brand,
+      'nutri_score': log.nutriScore,
+      'nova_group': log.novaGroup,
+      'per_100g': log.per100g != null
+          ? jsonEncode(log.per100g!.toJson())
+          : null,
+      'serving_size': log.servingSize,
+      'per_serving': log.perServing != null
+          ? jsonEncode(log.perServing!.toJson())
+          : null,
+      'image_url': log.imageUrl,
+      'scanned_at': log.scannedAt.toIso8601String(),
+      'quantity_note': log.quantityNote,
+    });
+  }
+
+  Future<List<NutritionLog>> loadNutritionLogsForCapture(
+    String captureId,
+  ) async {
+    final db = await _database;
+    final rows = await db.query(
+      _tableNutritionLogs,
+      where: 'capture_id = ?',
+      whereArgs: [captureId],
+      orderBy: 'scanned_at DESC',
+    );
+    return rows.map(_nutritionLogFromRow).toList();
+  }
+
+  Future<List<NutritionLog>> loadRecentNutritionLogs({int limit = 20}) async {
+    final db = await _database;
+    final rows = await db.query(
+      _tableNutritionLogs,
+      orderBy: 'scanned_at DESC',
+      limit: limit,
+    );
+    return rows.map(_nutritionLogFromRow).toList();
+  }
+
+  NutritionLog _nutritionLogFromRow(Map<String, dynamic> row) {
+    return NutritionLog(
+      barcode: row['barcode'] as String,
+      productName: row['product_name'] as String? ?? 'Unknown',
+      brand: row['brand'] as String?,
+      nutriScore: row['nutri_score'] as String?,
+      novaGroup: row['nova_group'] as int?,
+      per100g: row['per_100g'] != null
+          ? NutritionFacts.fromJson(
+              jsonDecode(row['per_100g'] as String) as Map<String, dynamic>,
+            )
+          : null,
+      servingSize: row['serving_size'] as String?,
+      perServing: row['per_serving'] != null
+          ? NutritionFacts.fromJson(
+              jsonDecode(row['per_serving'] as String) as Map<String, dynamic>,
+            )
+          : null,
+      imageUrl: row['image_url'] as String?,
+      scannedAt: DateTime.parse(row['scanned_at'] as String),
+      quantityNote: row['quantity_note'] as String?,
+    );
   }
 }

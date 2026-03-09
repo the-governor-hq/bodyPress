@@ -22,6 +22,7 @@ import 'local_db_service.dart';
 import 'location_service.dart';
 import 'notification_content_service.dart';
 import 'notification_service.dart';
+import 'nutrition_service.dart';
 import 'permission_service.dart';
 
 export '../models/ai_provider_config.dart'
@@ -72,6 +73,13 @@ final aiServiceProvider = Provider<AiService>((ref) {
 // ── Leaf services (no inter-service dependencies) ───────────────────────────
 
 final healthServiceProvider = Provider<HealthService>((_) => HealthService());
+
+/// Open Food Facts barcode lookup service.
+final nutritionServiceProvider = Provider<NutritionService>((ref) {
+  final svc = NutritionService();
+  ref.onDispose(svc.dispose);
+  return svc;
+});
 
 /// Singleton BLE Heart Rate service — keeps the Bluetooth connection alive
 /// across rebuild cycles.  Disposed when the ProviderScope is torn down.

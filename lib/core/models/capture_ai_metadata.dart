@@ -86,6 +86,11 @@ class CaptureAiMetadata {
   /// E.g. "HR rose steadily from 68 to 92 bpm, consistent with light exercise onset."
   final String? hrArc;
 
+  /// AI analysis of scanned food items: quality, sugar load,
+  /// ultra-processing level and predicted next-day impact on HRV / energy.
+  /// Null when no food barcode was scanned.
+  final String? nutritionContext;
+
   /// When this metadata was generated.
   final DateTime generatedAt;
 
@@ -111,6 +116,7 @@ class CaptureAiMetadata {
     this.environmentScore,
     this.hrvContext,
     this.hrArc,
+    this.nutritionContext,
   });
 
   // ── Serialisation ─────────────────────────────────────────────────────────
@@ -137,6 +143,7 @@ class CaptureAiMetadata {
     if (environmentScore != null) 'environment_score': environmentScore,
     if (hrvContext != null) 'hrv_context': hrvContext,
     if (hrArc != null) 'hr_arc': hrArc,
+    if (nutritionContext != null) 'nutrition_context': nutritionContext,
   };
 
   factory CaptureAiMetadata.fromJson(Map<String, dynamic> json) {
@@ -167,6 +174,7 @@ class CaptureAiMetadata {
       environmentScore: json['environment_score'] as int?,
       hrvContext: json['hrv_context'] as String?,
       hrArc: json['hr_arc'] as String?,
+      nutritionContext: json['nutrition_context'] as String?,
     );
   }
 

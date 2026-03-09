@@ -5,6 +5,25 @@ All notable changes to BodyPress Flutter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.18] - 2026-03-08
+
+### Added
+
+- **Barcode Nutrition Scanner**: Scan any food product barcode from the Capture screen to log its nutritional profile — Nutri-Score, NOVA group, full macro breakdown (energy, protein, carbs, sugars, fat, fiber, salt) per 100 g and per serving
+- `NutritionLog` + `NutritionFacts` data models with SQLite encode/decode for inline capture storage and longitudinal `nutrition_logs` table
+- `NutritionService` — Open Food Facts API v2 client (`lookupBarcode`, `search`); no API key required
+- Teal **Scan Food** chip on the Capture screen (same pattern as BLE HR) — opens a camera-based barcode scanner bottom sheet with live viewfinder overlay
+- Product result card in scanner sheet with Nutri-Score badge, emoji-labeled macro grid, "Add to Capture" / "Scan Again" actions
+- Nutrition summary card in the Capture sensor panel showing all scanned products with remove/add-more controls
+- `nutritionData` field on `CaptureEntry` — scanned products travel with the capture through persistence and AI
+- `nutrition_context` field on `CaptureAiMetadata` — AI analyses food quality, sugar load, ultra-processing level, and predicted next-day impact on HRV/energy
+- `═══ NUTRITION / FOOD SCANS ═══` section in AI metadata prompt with Nutri-Score, NOVA group descriptions, per-100 g and per-serving macros
+- DB schema v10 migration: `nutrition_data` TEXT column on `captures` table + `nutrition_logs` table with indexes on `scanned_at` and `capture_id`
+- CRUD methods in `LocalDbService`: `saveNutritionLog`, `loadNutritionLogsForCapture`, `loadRecentNutritionLogs`
+- `nutritionServiceProvider` in Riverpod provider registry
+- `CAMERA` permission + camera hardware feature declarations in `AndroidManifest.xml`
+- `mobile_scanner` ^7.0.1 dependency for camera-based barcode reading
+
 ## [1.0.17] - 2026-03-08
 
 ### Added

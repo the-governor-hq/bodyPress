@@ -79,22 +79,22 @@ void main() {
   // ─── parseNotification ────────────────────────────────────────────────
 
   group('Ads1299Source.parseNotification', () {
-    test('returns null for empty data', () {
-      expect(source.parseNotification([]), isNull);
+    test('returns empty list for empty data', () {
+      expect(source.parseNotification([]), isEmpty);
     });
 
-    test('returns null for data shorter than 24 bytes', () {
-      expect(source.parseNotification(List.filled(23, 0)), isNull);
+    test('returns empty list for data shorter than 24 bytes', () {
+      expect(source.parseNotification(List.filled(23, 0)), isEmpty);
     });
 
-    test('parses exactly 24 bytes into 8 channels', () {
+    test('parses exactly 24 bytes into 1 sample with 8 channels', () {
       // All zeros → all channels should be 0.0 µV
       final data = List.filled(24, 0);
-      final sample = source.parseNotification(data);
+      final samples = source.parseNotification(data);
 
-      expect(sample, isNotNull);
-      expect(sample!.channels.length, 8);
-      for (final v in sample.channels) {
+      expect(samples, hasLength(1));
+      expect(samples.first.channels.length, 8);
+      for (final v in samples.first.channels) {
         expect(v, 0.0);
       }
     });
@@ -107,10 +107,10 @@ void main() {
       for (var i = 0; i < 8; i++) {
         data.addAll([0x7F, 0xFF, 0xFF]);
       }
-      final sample = source.parseNotification(data);
+      final samples = source.parseNotification(data);
 
-      expect(sample, isNotNull);
-      for (final v in sample!.channels) {
+      expect(samples, hasLength(1));
+      for (final v in samples.first.channels) {
         // Positive, close to half the ADC range in µV
         expect(v, greaterThan(2249999));
         expect(v, lessThan(2250001));
@@ -124,10 +124,10 @@ void main() {
       for (var i = 0; i < 8; i++) {
         data.addAll([0x80, 0x00, 0x00]);
       }
-      final sample = source.parseNotification(data);
+      final samples = source.parseNotification(data);
 
-      expect(sample, isNotNull);
-      for (final v in sample!.channels) {
+      expect(samples, hasLength(1));
+      for (final v in samples.first.channels) {
         expect(v, lessThan(-2249999));
         expect(v, greaterThan(-2250001));
       }
@@ -140,10 +140,10 @@ void main() {
       for (var i = 0; i < 8; i++) {
         data.addAll([0xFF, 0xFF, 0xFF]);
       }
-      final sample = source.parseNotification(data);
+      final samples = source.parseNotification(data);
 
-      expect(sample, isNotNull);
-      for (final v in sample!.channels) {
+      expect(samples, hasLength(1));
+      for (final v in samples.first.channels) {
         expect(v, lessThan(0));
         expect(v, greaterThan(-1));
       }
@@ -161,33 +161,46 @@ void main() {
       data[4] = 0xFF;
       data[5] = 0xFF;
 
-      final sample = source.parseNotification(data);
+      final samples = source.parseNotification(data);
 
-      expect(sample, isNotNull);
-      expect(sample!.channels[0], greaterThan(0)); // +1 raw → small positive µV
+      expect(samples, hasLength(1));
+      final sample = samples.first;
+      expect(sample.channels[0], greaterThan(0)); // +1 raw → small positive µV
       expect(sample.channels[1], lessThan(0)); // -1 raw → small negative µV
       for (var i = 2; i < 8; i++) {
         expect(sample.channels[i], 0.0);
       }
     });
 
-    test('handles data longer than 24 bytes (ignores extra)', () {
+    test('parses 48 bytes into 2 samples', () {
       final data = List.filled(48, 0);
-      final sample = source.parseNotification(data);
+      final samples = source.parseNotification(data);
 
-      expect(sample, isNotNull);
-      expect(sample!.channels.length, 8);
+      expect(samples, hasLength(2));
+      expect(samples[0].channels.length, 8);
+      expect(samples[1].channels.length, 8);
     });
 
-    test('returned sample has a timestamp', () {
+    test('parses 120-byte packet into 5 samples', () {
+      final data = List.filled(120, 0);
+      final samples = source.parseNotification(data);
+
+      expect(samples, hasLength(5));
+      for (final s in samples) {
+        expect(s.channels.length, 8);
+      }
+    });
+
+    test('returned samples have timestamps', () {
       final data = List.filled(24, 0);
       final before = DateTime.now();
-      final sample = source.parseNotification(data);
+      final samples = source.parseNotification(data);
       final after = DateTime.now();
 
-      expect(sample, isNotNull);
-      expect(sample!.time.isAfter(before) || sample.time == before, isTrue);
-      expect(sample.time.isBefore(after) || sample.time == after, isTrue);
+      expect(samples, hasLength(1));
+      final t = samples.first.time;
+      expect(t.isAfter(before) || t == before, isTrue);
+      expect(t.isBefore(after) || t == after, isTrue);
     });
 
     test('big-endian byte order: 0x01 0x02 0x03 = 0x010203', () {
@@ -199,10 +212,10 @@ void main() {
       data[1] = 0x02;
       data[2] = 0x03;
 
-      final sample = source.parseNotification(data);
+      final samples = source.parseNotification(data);
 
-      expect(sample, isNotNull);
-      expect(sample!.channels[0], closeTo(17716.26, 0.1));
+      expect(samples, hasLength(1));
+      expect(samples.first.channels[0], closeTo(17716.26, 0.1));
     });
   });
 }

@@ -10,8 +10,8 @@ import '../ble_source_provider.dart';
 /// ### Protocol
 /// - BLE service UUID: `0000fe42-8e22-4541-9d4c-21edae82ed19`
 /// - Notification characteristic: same UUID (single-characteristic design)
-/// - Each notification: 24 bytes → 8 channels × 3 bytes (big-endian, 24-bit
-///   two's complement)
+/// - Each notification: 120 bytes → 5 samples × 8 channels × 3 bytes
+///   (big-endian, 24-bit two's complement)
 /// - Voltage formula: `µV = 1_000_000 × 4.5 × (raw_signed / 16_777_215)`
 ///
 /// ### Adding your own source
@@ -75,28 +75,49 @@ class Ads1299Source extends BleSourceProvider {
   /// Midpoint for unsigned→signed conversion (bit 23 set).
   static const int _signBit = 0x800000; // 2^23
 
+  /// Bytes per single sample: 8 channels × 3 bytes.
+  static const int _bytesPerSample = 24;
+
   @override
-  SignalSample? parseNotification(List<int> data) {
-    // Each notification must contain at least 8 × 3 = 24 bytes.
-    if (data.length < 24) return null;
+  List<SignalSample> parseNotification(List<int> data) {
+    // Need at least one full sample (24 bytes).
+    if (data.length < _bytesPerSample) return const [];
 
-    final channels = <double>[];
-    for (var i = 0; i < 8; i++) {
-      final offset = i * 3;
-      // Big-endian 24-bit unsigned assembly.
-      int raw =
-          (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
+    final sampleCount = data.length ~/ _bytesPerSample;
+    final now = DateTime.now();
+    final samples = <SignalSample>[];
 
-      // Two's complement sign extension to signed 24-bit.
-      if (raw >= _signBit) {
-        raw -= _fullScale + 1; // 2^24
+    for (var s = 0; s < sampleCount; s++) {
+      final base = s * _bytesPerSample;
+      final channels = <double>[];
+      for (var ch = 0; ch < 8; ch++) {
+        final offset = base + ch * 3;
+        // Big-endian 24-bit unsigned assembly.
+        int raw =
+            (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
+
+        // Two's complement sign extension to signed 24-bit.
+        if (raw >= _signBit) {
+          raw -= _fullScale + 1; // 2^24
+        }
+
+        // Convert to microvolts.
+        final uv = 1000000.0 * _vRef * (raw / _fullScale);
+        channels.add(double.parse(uv.toStringAsFixed(2)));
       }
 
-      // Convert to microvolts.
-      final uv = 1000000.0 * _vRef * (raw / _fullScale);
-      channels.add(double.parse(uv.toStringAsFixed(2)));
+      // Space timestamps evenly across the batch based on sample rate.
+      final offsetMicros = (s * 1000000 ~/ sampleRateHz.round());
+      samples.add(
+        SignalSample(
+          time: now.subtract(
+            Duration(microseconds: (sampleCount - 1 - s) * offsetMicros),
+          ),
+          channels: channels,
+        ),
+      );
     }
 
-    return SignalSample(time: DateTime.now(), channels: channels);
+    return samples;
   }
 }

@@ -252,5 +252,5 @@ class _FakeSource extends BleSourceProvider {
   @override
   double get sampleRateHz => 100;
   @override
-  SignalSample? parseNotification(List<int> data) => null;
+  List<SignalSample> parseNotification(List<int> data) => const [];
 }

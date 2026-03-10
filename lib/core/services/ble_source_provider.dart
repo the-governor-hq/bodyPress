@@ -193,11 +193,13 @@ abstract class BleSourceProvider {
 
   // ── Data parsing ───────────────────────────────────────────────────
 
-  /// Parse a raw BLE notification [data] into one [SignalSample].
+  /// Parse a raw BLE notification [data] into one or more [SignalSample]s.
   ///
-  /// Return `null` if the data is malformed or too short.
-  /// The returned sample should have exactly [channelCount] values.
-  SignalSample? parseNotification(List<int> data);
+  /// A single notification may carry multiple batched samples (e.g. 120 bytes
+  /// = 5 × 24-byte samples for ADS1299). Return an empty list if the data is
+  /// malformed or too short.
+  /// Each returned sample should have exactly [channelCount] values.
+  List<SignalSample> parseNotification(List<int> data);
 
   // ── Lifecycle (optional overrides) ─────────────────────────────────
 
@@ -399,9 +401,11 @@ class BleSourceService {
 
       _notifySubscription = notifyChar.lastValueStream.listen((data) {
         if (data.isEmpty) return;
-        final sample = provider.parseNotification(data);
-        if (sample != null && !_signalController.isClosed) {
-          _signalController.add(sample);
+        final samples = provider.parseNotification(data);
+        for (final sample in samples) {
+          if (!_signalController.isClosed) {
+            _signalController.add(sample);
+          }
         }
       });
     } catch (e) {

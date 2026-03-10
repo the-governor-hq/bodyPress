@@ -5,6 +5,18 @@ All notable changes to BodyPress Flutter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.21] - 2026-03-10
+
+### Fixed
+
+- **ADS1299 multi-sample BLE packets**: Parser now correctly handles 120-byte notifications (5 batched samples × 8 channels × 3 bytes) instead of only reading the first 24 bytes and discarding the rest — 5× effective sample throughput at 250 SPS
+- Timestamps within a batch are evenly spaced based on sample rate for accurate time-domain rendering
+
+### Changed
+
+- `BleSourceProvider.parseNotification` return type changed from `SignalSample?` to `List<SignalSample>` to support multi-sample BLE packets
+- `BleSourceService` listener iterates over all returned samples per notification
+
 ## [1.0.20] - 2026-03-09
 
 ### Added
